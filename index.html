@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Protocolos Clínicos — Hospital Paulo Sacramento</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="login-screen">
+    <div class="login-box">
+        <div class="login-mark">
+            <img src="logo.png" alt="Hapvida">
+        </div>
+        <h2>Protocolos Clínicos</h2>
+        <div class="subtitle">Pronto Socorro — Hospital Paulo Sacramento</div>
+        <input type="email" id="email" placeholder="E-mail corporativo">
+        <input type="password" id="senha" placeholder="Senha">
+        <button onclick="fazerLogin()">Acessar Sistema</button>
+        <div id="login-erro"></div>
+        <div class="lgpd-warning">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            <div><strong>Atenção (LGPD):</strong> Este sistema lida com Dados Pessoais Sensíveis de saúde. O acesso é estritamente restrito à finalidade de assistência ao paciente. É terminantemente proibida a captura de tela, cópia indevida ou compartilhamento destas informações em ambientes não homologados.</div>
+        </div>
+    </div>
+</div>
+
+<div id="app-content" style="display:none;">
+    <header class="main-header">
+        <div class="header-inner">
+            <div class="header-brand">
+                <div class="header-mark">
+                    <img src="logo-icon.png" alt="Hapvida">
+                </div>
+                <div class="header-info">
+                    <h1>Protocolos Clínicos</h1>
+                    <span>Pronto Socorro — Hospital Paulo Sacramento</span>
+                </div>
+            </div>
+            <div class="header-meta">
+                <div class="header-date">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                    <b id="HD"></b>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+                    <b id="HT"></b>
+                </div>
+                <button id="btn-estacao" class="estacao-badge" onclick="abrirSeletorEstacao()" title="Trocar estação de trabalho">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span id="estacao-label">Selecionar estação</span>
+                </button>
+                <button id="btn-arquivo" class="btn-padrao" onclick="configurarPastaArquivo()" title="Configurar pasta de arquivamento de PDFs">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                </button>
+                <button class="btn-padrao" onclick="fazerLogout()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+                    Sair
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <div class="tabs-container">
+        <div class="tabs-left">
+            <button id="tab-andamento" class="tab-btn active" onclick="mudarView('andamento')">Em Andamento <span class="tab-count" id="tab-count-andamento">0</span></button>
+            <button id="tab-relatorios" class="tab-btn" onclick="mudarView('relatorios')">Relatórios</button>
+        </div>
+        <div class="mini-counters" id="mini-counters"></div>
+    </div>
+
+    <div class="dashboard-bar" id="view-andamento">
+        <div class="filters" id="filtros-protocolo">
+            <button class="fb on" onclick="filProtocolo(this, 'all')">Todos</button>
+            <button class="fb" onclick="filProtocolo(this, 'sepse')">Sepse</button>
+            <button class="fb" onclick="filProtocolo(this, 'dor_toracica')">Dor Torácica</button>
+            <button class="fb" onclick="filProtocolo(this, 'avc')">AVC</button>
+        </div>
+        <div class="filters filters-estacao" id="filtros-estacao"></div>
+    </div>
+
+    <div class="cards-wrap" id="view-andamento-cards">
+        <div id="lista-protocolos" class="protocolo-grid"></div>
+        <div id="estado-vazio" class="estado-vazio" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+            <p>Nenhum protocolo em andamento no momento.</p>
+        </div>
+    </div>
+
+    <div class="view-relatorios" id="view-relatorios" style="display:none;"></div>
+
+    <button id="btn-novo-protocolo" class="fab-novo" onclick="abrirModalNovoProtocolo()" title="Abrir novo protocolo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        <span>Novo Protocolo</span>
+    </button>
+</div>
+
+<div id="modal-backdrop" onclick="fecharTodosModais()"></div>
+<div id="modal-estacao" class="modal-box"></div>
+<div id="modal-novo-protocolo" class="modal-box"></div>
+<div id="modal-detalhe" class="modal-box modal-box-lg"></div>
+<div id="modal-finalizar" class="modal-box"></div>
+
+<div id="toast-wrap"></div>
+
+<div id="print-area"></div>
+<script src="app.js"></script>
+</body>
+</html>
