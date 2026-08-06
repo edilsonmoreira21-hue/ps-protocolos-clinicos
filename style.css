@@ -350,6 +350,9 @@ button { font-family: inherit; }
 .etapa-meta { display: flex; align-items: center; gap: 8px; margin-top: 3px; flex-wrap: wrap; }
 .etapa-tag { font-size: 10px; font-weight: 700; color: var(--text-tertiary); background: var(--bg-surface); border: 1px solid var(--border); border-radius: 10px; padding: 1px 7px; }
 .etapa-meta-time { font-size: 11px; font-weight: 700; }
+.etapa-multi-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; }
+.etapa-multi-opt { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-primary); cursor: pointer; }
+.etapa-multi-opt input { width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; }
 .etapa-valor-row { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
 .etapa-valor-row input { height: 30px; border: 1px solid var(--border); border-radius: 5px; padding: 0 8px; font-size: 12.5px; background: var(--bg-surface); outline: none; width: 130px; }
 .etapa-valor-row input:focus { border-color: var(--accent); }

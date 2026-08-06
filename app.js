@@ -107,52 +107,73 @@ auth.onAuthStateChanged(function(user) {
 });
 
 // ===== TEMPLATES CLÍNICOS DOS PROTOCOLOS =====
-// Conteúdo baseado em critérios clínicos padrão (qSOFA, NEWS2, Surviving Sepsis Campaign,
-// bundles de dor torácica e AVC). Ajustável quando o modelo institucional do HPS for enviado.
+// Campos, ordem e metas de tempo replicados dos formulários institucionais Hapvida/NotreDame
+// Intermédica ("Gerenciamento do Protocolo de Sepse Adulto", "Ficha de Monitoramento de Dor
+// Torácica" + "Protocolo de Dor Torácica", "Protocolo AVC"). Metas sem número explícito no
+// formulário original seguem diretrizes consolidadas (AHA/ACC para dor torácica, Surviving
+// Sepsis Campaign para sepse).
 var TIPOS = {
     sepse: {
         label: 'Sepse',
-        labelReferencia: 'Hora de identificação da suspeita (qSOFA ≥2 / NEWS2 ≥5 / disfunção orgânica nova)',
+        labelReferencia: 'Horário de identificação dos critérios de alerta (SIRS/disfunção orgânica)',
+        motivosExclusao: ['Sem suspeita ou confirmação de infecção após avaliação médica', 'Sem disfunção orgânica após o resultado do pacote sepse', 'Diagnóstico alternativo confirmado', 'Outro'],
         etapas: [
-            { key: 'triagem', label: 'Triagem/identificação da suspeita (qSOFA ≥2 ou NEWS2 ≥5 ou disfunção orgânica nova)', estacao: 'porta', tipoCampo: 'checkbox', obrigatoria: true },
-            { key: 'lactato', label: 'Lactato coletado (arterial ou venoso)', estacao: 'laboratorio', tipoCampo: 'valor', unidade: 'mg/dL', obrigatoria: true, metaMinutos: 30 },
-            { key: 'hemoculturas', label: '2 pares de hemoculturas coletados (antes do antibiótico)', estacao: 'laboratorio', tipoCampo: 'checkbox', obrigatoria: true, metaMinutos: 60 },
-            { key: 'atb', label: 'Antibioticoterapia de amplo espectro administrada', estacao: 'emerg_enf', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 60 },
-            { key: 'volume', label: 'Cristaloide ≥30 mL/kg iniciado (se hipotensão ou lactato ≥36 mg/dL)', estacao: 'emerg_enf', tipoCampo: 'checkbox', obrigatoria: false, metaMinutos: 180 },
-            { key: 'vasopressor', label: 'Noradrenalina iniciada (se PAM <65 mmHg após volume)', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: false },
-            { key: 'reavaliacao_lactato', label: 'Reavaliação do lactato (pacote de 6h)', estacao: 'laboratorio', tipoCampo: 'valor', unidade: 'mg/dL', obrigatoria: false, metaMinutos: 360 },
-            { key: 'destino', label: 'Destino definido (UTI / Semi-intensiva / Enfermaria)', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: true }
+            { key: 'criterios_sirs', label: 'Critérios de alerta SIRS identificados', estacao: 'porta', tipoCampo: 'multi', obrigatoria: true, opcoes: ['T.ax. > 37,8°C', 'T.ax. < 36,0°C', 'FC > 90 bpm', 'FR > 20 rpm', 'Leucocitose > 12.000/mm³', 'Leucopenia < 4.000/mm³', '> 10% de células jovens (bastões)'] },
+            { key: 'criterios_disfuncao', label: 'Critérios de disfunção orgânica identificados', estacao: 'porta', tipoCampo: 'multi', obrigatoria: true, opcoes: ['Hipotensão (PAS<90, PAM<65 ou queda de PA>40mmHg)', 'Oligúria (≤0,5mL/kg/h) ou creatinina >2mg/dL', 'PaO2/FiO2 <300 ou necessidade de O2 para SpO2>90%', 'Plaquetas <100.000/mm³ ou queda de 50% em 3 dias', 'Acidose metabólica inexplicável (BE≤5,0 e lactato acima do valor de referência)', 'Rebaixamento do nível de consciência, agitação, delirium', 'Aumento significativo de bilirrubinas (>2x o valor de referência)'] },
+            { key: 'avaliacao_medica', label: 'Avaliação médica realizada, protocolo comunicado ao médico', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true },
+            { key: 'suspeita_infeccao', label: 'Suspeita ou confirmação de infecção presente', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: true },
+            { key: 'hemoculturas', label: 'Coleta de hemocultura (pacote sepse 1ª hora)', estacao: 'laboratorio', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 60 },
+            { key: 'lactato', label: 'Coleta de lactato (pacote sepse 1ª hora)', estacao: 'laboratorio', tipoCampo: 'valor', unidade: 'mg/dL', obrigatoria: true, metaMinutos: 60 },
+            { key: 'foco_infeccioso', label: 'Foco infeccioso definido (pulmonar / urinário / abdominal / cutâneo / neurológico / outro)', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true },
+            { key: 'atb', label: 'Antibioticoterapia administrada (pacote sepse 1ª hora)', estacao: 'emerg_enf', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 60 },
+            { key: 'disfuncao_pos_pacote', label: 'Disfunção orgânica reavaliada após o pacote sepse', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: true },
+            { key: 'reposicao_volemica', label: 'Reposição volêmica 30mL/kg de cristaloides (peso / volume / solução)', estacao: 'emerg_enf', tipoCampo: 'valor', obrigatoria: false },
+            { key: 'segundo_lactato', label: 'Segunda coleta de lactato (pós-ressuscitação volêmica)', estacao: 'laboratorio', tipoCampo: 'valor', unidade: 'mg/dL', obrigatoria: false },
+            { key: 'vasopressor', label: 'Noradrenalina iniciada (se PAM <65mmHg após volume) e acesso central providenciado', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: false },
+            { key: 'destino', label: 'Destino definido (UTI / Internação) e hospital de destino', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true }
         ]
     },
     dor_toracica: {
         label: 'Dor Torácica',
-        labelReferencia: 'Hora de início da dor torácica',
+        labelReferencia: 'Horário de início da dor',
+        motivosExclusao: ['Diagnóstico não cardiológico confirmado', 'Dor resolvida sem alterações de ECG/marcadores', 'Outro'],
         etapas: [
-            { key: 'ecg', label: 'ECG realizado e interpretado', estacao: 'emerg_enf', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 10 },
+            { key: 'eva', label: 'Escala de dor (EVA) registrada', estacao: 'emerg_enf', tipoCampo: 'valor', obrigatoria: true, metaMinutos: 10 },
+            { key: 'atendimento_medico', label: 'Atendimento médico inicial realizado', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 10 },
+            { key: 'ecg', label: 'ECG de 12 derivações realizado', estacao: 'emerg_enf', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 10 },
+            { key: 'avaliacao_ecg', label: 'Avaliação do ECG', estacao: 'emerg_medico', tipoCampo: 'multi', obrigatoria: true, opcoes: ['ECG normal', 'Supra de ST ou BRE novo/provavelmente novo', 'Infra de ST (>0,5mm)', 'Inversão ou simetria de onda T', 'Onda Q patológica', 'Alterações dinâmicas do ST', 'Arritmias ameaçadoras à vida (FV, TV)'] },
+            { key: 'diagnostico', label: 'Diagnóstico definido (IAM com Supra ST / IAM sem Supra ST / Angina Instável / Outro)', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true },
+            { key: 'sinais_alerta', label: 'Sinais de alerta e gravidade', estacao: 'emerg_medico', tipoCampo: 'multi', obrigatoria: false, opcoes: ['PA sistólica ≤90 e/ou diastólica <60mmHg', 'Sonolência e/ou confusão mental', 'Má perfusão periférica (sudorese, extremidades frias)', 'FR>24irpm, taquidispneico, sintomas de congestão', 'Dor torácica intensa (EVA 9 ou 10)', 'Arritmia grave (FC<50 ou >150bpm)'] },
             { key: 'aas', label: 'AAS administrado (se sem contraindicação)', estacao: 'emerg_enf', tipoCampo: 'checkbox', obrigatoria: true, metaMinutos: 10 },
             { key: 'troponina', label: 'Coleta de marcadores de necrose miocárdica (troponina)', estacao: 'laboratorio', tipoCampo: 'valor', obrigatoria: true, metaMinutos: 30 },
-            { key: 'rx_torax', label: 'RX de tórax realizado', estacao: 'imagem', tipoCampo: 'checkbox', obrigatoria: true, metaMinutos: 30 },
-            { key: 'risco', label: 'Classificação de risco (TIMI/HEART)', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true },
-            { key: 'conduta', label: 'Definição de conduta (fibrinólise / angioplastia / internação / alta)', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: true },
-            { key: 'porta_agulha', label: 'Porta-agulha (fibrinólise), se aplicável', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false, metaMinutos: 30 },
-            { key: 'porta_balao', label: 'Porta-balão (angioplastia), se aplicável', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false, metaMinutos: 90 }
+            { key: 'rx_torax', label: 'RX de tórax realizado', estacao: 'imagem', tipoCampo: 'checkbox', obrigatoria: false, metaMinutos: 30 },
+            { key: 'telecardio', label: 'Conduta do TeleCardio recebida', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false },
+            { key: 'porta_agulha', label: 'Fibrinólise — horário de administração de Alteplase (porta-agulha)', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false, metaMinutos: 30 },
+            { key: 'porta_balao', label: 'Hemodinâmica — horário de abertura da artéria (porta-balão)', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false, metaMinutos: 90 },
+            { key: 'destino', label: 'Destino definido', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: true }
         ]
     },
     avc: {
         label: 'AVC',
-        labelReferencia: 'Hora do último normal (última vez visto sem os sintomas)',
+        labelReferencia: 'Hora do último normal (confirmar tempo dos sintomas)',
+        motivosExclusao: ['Hipótese diagnóstica de AVC não confirmada — investigar outras patologias', 'TC com sangue — seguir Protocolo de AVC Hemorrágico', 'Outro'],
         etapas: [
-            { key: 'ultimo_normal', label: 'Hora do último normal confirmada', estacao: 'porta', tipoCampo: 'checkbox', obrigatoria: true },
-            { key: 'glicemia', label: 'Glicemia capilar', estacao: 'emerg_enf', tipoCampo: 'valor', unidade: 'mg/dL', obrigatoria: true, metaMinutos: 10 },
-            { key: 'nihss', label: 'NIHSS realizado', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true, metaMinutos: 15 },
+            { key: 'sinais_avc', label: 'Sinais de AVC identificados', estacao: 'porta', tipoCampo: 'multi', obrigatoria: true, opcoes: ['Perda de força/sensibilidade', 'Dificuldade de fala/compreensão', 'Desequilíbrio/incoordenação motora', 'Dificuldade visual', 'Confusão mental', 'Cefaleia intensa'] },
+            { key: 'enfermagem_inicial', label: 'Cuidados iniciais de enfermagem (cabeceira 0°, sinais vitais, dextro, acesso venoso periférico)', estacao: 'emerg_enf', tipoCampo: 'checkbox', obrigatoria: true },
+            { key: 'avaliacao_medica', label: 'Avaliação médica (confirmar tempo dos sintomas, solicitar exames, aplicar NIHSS)', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 10 },
+            { key: 'nihss', label: 'NIHSS registrado', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true, metaMinutos: 10 },
             { key: 'tc_cranio', label: 'TC de crânio sem contraste realizada', estacao: 'imagem', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 25 },
-            { key: 'elegibilidade', label: 'Elegibilidade para trombólise/trombectomia definida', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: true, metaMinutos: 45 },
-            { key: 'rtpa', label: 'rtPA administrado (porta-agulha), se elegível', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false, metaMinutos: 60 },
-            { key: 'destino', label: 'Destino definido (UTI / Unidade AVC / Transferência para trombectomia)', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: true }
+            { key: 'hd_confirmada', label: 'Hipótese diagnóstica de AVC confirmada', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 45 },
+            { key: 'tc_com_sangue', label: 'TC com sangue avaliada (define AVC hemorrágico x isquêmico)', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: true },
+            { key: 'contraindicacao_trombolise', label: 'Contraindicações para trombólise avaliadas', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: true },
+            { key: 'trombolise', label: 'tPA EV 0,9mg/Kg administrado (se <4,5h, sem contraindicação) — porta-agulha', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false, metaMinutos: 60 },
+            { key: 'hemodinamica', label: 'Hemodinâmica/trombectomia considerada (janela 4,5–8h)', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: false },
+            { key: 'terapia_alternativa', label: 'AAS + Profilaxia TEV + Estatina prescritos (se não elegível para trombólise/trombectomia)', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: false },
+            { key: 'destino', label: 'Destino definido (Alta do PS / Internação UTI / Internação UI / Óbito)', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true }
         ]
     }
 };
-var DESFECHOS = ['Internação UTI', 'Internação Semi-intensiva/Enfermaria', 'Alta', 'Transferência externa', 'Óbito', 'Outro'];
+var DESFECHOS = ['Internação UTI', 'Internação (Enfermaria/Unidade de Internação)', 'Alta', 'Transferência externa', 'Óbito', 'Outro'];
 var CV_OPTIONS = ['PROPRIO', 'EXTERNO', 'PARTICULAR'];
 
 function iconeTipo(tipo) {
@@ -384,7 +405,7 @@ function salvarNovoProtocolo() {
     if (!getEstacaoAtual()) { alert('Selecione a estação de trabalho antes de continuar.'); abrirSeletorEstacao(); return; }
     var tipoInfo = TIPOS[tipo];
     var etapas = tipoInfo.etapas.map(function(e) {
-        return { key: e.key, label: e.label, estacao: e.estacao, tipoCampo: e.tipoCampo, unidade: e.unidade || null, obrigatoria: e.obrigatoria, metaMinutos: e.metaMinutos != null ? e.metaMinutos : null, feita: false, valor: null, horario: null, feitaPor: null, feitaEm: null };
+        return { key: e.key, label: e.label, estacao: e.estacao, tipoCampo: e.tipoCampo, unidade: e.unidade || null, opcoes: e.opcoes || null, obrigatoria: e.obrigatoria, metaMinutos: e.metaMinutos != null ? e.metaMinutos : null, feita: false, valor: null, horario: null, feitaPor: null, feitaEm: null };
     });
     var agora = agoraISO();
     var doc = {
@@ -460,7 +481,7 @@ function renderDetalheProtocolo(id) {
 
     if (p.status === 'ativo') {
         h += '<div class="modal-footer" style="justify-content:space-between;">';
-        h += '<button class="btn-padrao btn-danger" onclick="cancelarProtocolo(\'' + p.id + '\')">Cancelar protocolo</button>';
+        h += '<button class="btn-padrao btn-danger" onclick="abrirModalCancelar(\'' + p.id + '\')">Cancelar protocolo</button>';
         h += '<button class="btn-padrao btn-primary" onclick="abrirModalFinalizar(\'' + p.id + '\')">Finalizar protocolo</button>';
         h += '</div>';
     } else {
@@ -486,7 +507,13 @@ function renderEtapaItem(p, e, idx) {
     h += '</div>';
 
     if (!e.feita) {
-        if (e.tipoCampo === 'valor') {
+        if (e.tipoCampo === 'multi') {
+            h += '<div class="etapa-multi-list">';
+            (e.opcoes || []).forEach(function(op, opIdx) {
+                h += '<label class="etapa-multi-opt"><input type="checkbox" id="multi-' + idx + '-' + opIdx + '" value="' + esc(op) + '"> ' + escHtml(op) + '</label>';
+            });
+            h += '</div><div class="etapa-valor-row"><button class="etapa-btn-mini primary" onclick="salvarEtapaMulti(\'' + p.id + '\',' + idx + ')">Confirmar seleção</button></div>';
+        } else if (e.tipoCampo === 'valor') {
             h += '<div class="etapa-valor-row"><input type="text" id="valor-' + idx + '" placeholder="' + (e.unidade ? 'Valor (' + esc(e.unidade) + ')' : 'Valor') + '">';
             h += '<button class="etapa-btn-mini primary" onclick="salvarEtapaValor(\'' + p.id + '\',' + idx + ')">Salvar</button></div>';
         } else if (e.tipoCampo === 'horario') {
@@ -524,6 +551,16 @@ function salvarEtapaValor(protocoloId, idx) {
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
     atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, feitaEm: agoraISO(), feitaPor: usuarioAtual.email }, e.label + ': ' + valor + (e.unidade ? ' ' + e.unidade : ''));
 }
+function salvarEtapaMulti(protocoloId, idx) {
+    var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
+    var selecionados = [];
+    (e.opcoes || []).forEach(function(op, opIdx) {
+        var chk = g('multi-' + idx + '-' + opIdx);
+        if (chk && chk.checked) selecionados.push(op);
+    });
+    var valor = selecionados.length ? selecionados.join('; ') : 'Nenhum critério presente';
+    atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, feitaEm: agoraISO(), feitaPor: usuarioAtual.email }, e.label + ': ' + valor);
+}
 function salvarEtapaHorario(protocoloId, idx) {
     var input = g('horario-' + idx); if (!input.value) { input.focus(); return; }
     var horarioISO = new Date(input.value).toISOString();
@@ -545,9 +582,23 @@ function adicionarObservacao(protocoloId) {
     db.collection('protocolos').doc(protocoloId).update({ timeline: timeline }).then(function() { g('obs-texto').value = ''; });
 }
 
-function cancelarProtocolo(protocoloId) {
-    var motivo = prompt('Motivo do cancelamento do protocolo:');
-    if (motivo == null || !motivo.trim()) return;
+function abrirModalCancelar(protocoloId) {
+    var p = protocoloPorId(protocoloId);
+    var tipoInfo = TIPOS[p.tipo] || { motivosExclusao: ['Outro'] };
+    var h = '<div class="modal-header"><h3>Cancelar / Excluir Protocolo</h3><button class="modal-close" onclick="fecharTodosModais()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>';
+    h += '<div class="modal-body">';
+    h += '<div class="field"><label>Motivo da exclusão do protocolo</label><select id="canc-motivo" onchange="document.getElementById(\'canc-outro-wrap\').style.display = this.value===\'Outro\'?\'flex\':\'none\';">';
+    h += tipoInfo.motivosExclusao.map(function(m) { return '<option value="' + esc(m) + '">' + escHtml(m) + '</option>'; }).join('');
+    h += '</select></div>';
+    h += '<div class="field" id="canc-outro-wrap" style="display:none;"><label>Descreva o motivo</label><textarea id="canc-outro-texto" placeholder="Motivo do cancelamento..."></textarea></div>';
+    h += '</div><div class="modal-footer"><button class="btn-padrao" onclick="fecharTodosModais()">Voltar</button><button class="btn-padrao btn-danger" onclick="confirmarCancelamento(\'' + protocoloId + '\')">Excluir Protocolo</button></div>';
+    g('modal-finalizar').innerHTML = h;
+    abrirModal('modal-finalizar');
+}
+function confirmarCancelamento(protocoloId) {
+    var selecionado = g('canc-motivo').value;
+    var motivo = selecionado === 'Outro' ? g('canc-outro-texto').value.trim() : selecionado;
+    if (!motivo) { g('canc-outro-texto').focus(); return; }
     var p = protocoloPorId(protocoloId);
     var agora = agoraISO();
     var timeline = (p.timeline || []).concat([{ ts: agora, autor: usuarioAtual.email, estacao: getEstacaoAtual(), texto: 'Protocolo cancelado: ' + motivo }]);
