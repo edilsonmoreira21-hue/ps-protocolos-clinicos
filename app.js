@@ -121,7 +121,7 @@ var TIPOS = {
             { key: 'criterios_sirs', label: 'Critérios de alerta SIRS identificados', estacao: 'porta', tipoCampo: 'multi', obrigatoria: true, opcoes: ['T.ax. > 37,8°C', 'T.ax. < 36,0°C', 'FC > 90 bpm', 'FR > 20 rpm', 'Leucocitose > 12.000/mm³', 'Leucopenia < 4.000/mm³', '> 10% de células jovens (bastões)'] },
             { key: 'criterios_disfuncao', label: 'Critérios de disfunção orgânica identificados', estacao: 'porta', tipoCampo: 'multi', obrigatoria: true, opcoes: ['Hipotensão (PAS<90, PAM<65 ou queda de PA>40mmHg)', 'Oligúria (<=0,5mL/kg/h) ou creatinina >2mg/dL', 'PaO2/FiO2 <300 ou necessidade de O2 para SpO2>90%', 'Plaquetas <100.000/mm³ ou queda de 50% em 3 dias', 'Acidose metabólica inexplicável (BE<=5,0, lactato elevado)', 'Rebaixamento do nível de consciência, agitação, delirium', 'Aumento significativo de bilirrubinas (>2x o valor de referência)'] },
             { key: 'avaliacao_medica', label: 'Avaliação médica realizada, protocolo comunicado ao médico', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true },
-            { key: 'suspeita_infeccao', label: 'Suspeita ou confirmação de infecção presente', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: true },
+            { key: 'suspeita_infeccao', label: 'Suspeita ou confirmação de infecção presente', estacao: 'emerg_medico', tipoCampo: 'decisao', obrigatoria: true, motivoDescarte: 'Sem suspeita ou confirmação de infecção após avaliação médica' },
             { key: 'hemoculturas', label: 'Coleta de hemocultura (pacote sepse 1ª hora)', estacao: 'laboratorio', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 60 },
             { key: 'lactato', label: 'Coleta de lactato (pacote sepse 1ª hora)', estacao: 'laboratorio', tipoCampo: 'valor', unidade: 'mg/dL', obrigatoria: true, metaMinutos: 60 },
             { key: 'foco_infeccioso', label: 'Foco infeccioso definido (pulmonar / urinário / abdominal / cutâneo / neurológico / outro)', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true },
@@ -519,6 +519,9 @@ function renderEtapaItem(p, e, idx) {
         } else if (e.tipoCampo === 'horario') {
             h += '<div class="etapa-valor-row"><input type="datetime-local" id="horario-' + idx + '" value="' + getLocalISO() + '">';
             h += '<button class="etapa-btn-mini primary" onclick="salvarEtapaHorario(\'' + p.id + '\',' + idx + ')">Registrar</button></div>';
+        } else if (e.tipoCampo === 'decisao') {
+            h += '<div class="etapa-valor-row"><button class="etapa-btn-mini success" onclick="confirmarEtapaDecisao(\'' + p.id + '\',' + idx + ')">Confirmada</button>';
+            h += '<button class="etapa-btn-mini danger" onclick="descartarEtapaDecisao(\'' + p.id + '\',' + idx + ')">Descartada</button></div>';
         } else {
             h += '<div class="etapa-valor-row"><button class="etapa-btn-mini primary" onclick="marcarEtapaRapida(\'' + p.id + '\',' + idx + ')">Marcar feito agora</button></div>';
         }
@@ -566,6 +569,25 @@ function salvarEtapaHorario(protocoloId, idx) {
     var horarioISO = new Date(input.value).toISOString();
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
     atualizarEtapa(protocoloId, idx, { feita: true, horario: horarioISO, feitaEm: agoraISO(), feitaPor: usuarioAtual.email }, e.label + ' registrado às ' + fmtDataHora(horarioISO));
+}
+function confirmarEtapaDecisao(protocoloId, idx) {
+    var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
+    atualizarEtapa(protocoloId, idx, { feita: true, valor: 'Confirmada', feitaEm: agoraISO(), feitaPor: usuarioAtual.email }, e.label + ': confirmada — protocolo segue em andamento');
+}
+function descartarEtapaDecisao(protocoloId, idx) {
+    var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
+    if (!confirm('Confirma que "' + e.label + '" foi descartada? O protocolo será encerrado automaticamente.')) return;
+    var agora = agoraISO();
+    var etapas = p.etapas.slice();
+    etapas[idx] = Object.assign({}, etapas[idx], { feita: true, valor: 'Descartada', feitaEm: agora, feitaPor: usuarioAtual.email });
+    var motivo = e.motivoDescarte || 'Descartada — ' + e.label;
+    var timeline = (p.timeline || []).concat([
+        { ts: agora, autor: usuarioAtual.email, estacao: getEstacaoAtual(), texto: e.label + ': descartada' },
+        { ts: agora, autor: usuarioAtual.email, estacao: getEstacaoAtual(), texto: 'Protocolo cancelado: ' + motivo }
+    ]);
+    db.collection('protocolos').doc(protocoloId).update({ etapas: etapas, status: 'cancelado', canceladoMotivo: motivo, finalizadoEm: agora, finalizadoPor: usuarioAtual.email, timeline: timeline })
+        .then(function() { mostrarToast('Protocolo encerrado', e.label + ' descartada'); })
+        .catch(function(err) { alert('Erro ao atualizar: ' + err.message); });
 }
 function desfazerEtapa(protocoloId, idx) {
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
