@@ -178,12 +178,13 @@ var TIPOS = {
             { key: 'atb_prescrito', label: 'Antibiótico prescrito', estacao: 'emerg_medico', tipoCampo: 'valor_horario', obrigatoria: true, placeholder: 'Nome do antibiótico' },
             { key: 'hemoculturas', label: 'Coleta de hemocultura (pacote sepse 1ª hora)', estacao: 'laboratorio', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 60 },
             { key: 'lactato', label: 'Coleta de lactato (pacote sepse 1ª hora)', estacao: 'laboratorio', tipoCampo: 'valor', unidade: 'mg/dL', obrigatoria: true, metaMinutos: 60 },
-            { key: 'atb', label: 'Antibioticoterapia administrada (pacote sepse 1ª hora)', estacao: 'emerg_enf', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 60 },
+            { key: 'atb', label: 'Antibioticoterapia administrada (pacote sepse 1ª hora)', estacao: 'emerg_enf', tipoCampo: 'valor_horario', obrigatoria: true, metaMinutos: 60, placeholder: 'Nome do antibiótico administrado' },
             { key: 'disfuncao_pos_pacote', label: 'Há disfunção orgânica após o resultado do pacote sepse?', estacao: 'emerg_medico', tipoCampo: 'decisao', obrigatoria: true, rotuloPositivo: 'Sim', rotuloNegativo: 'Não', motivoDescarte: 'Sem disfunção orgânica após o resultado do pacote sepse' },
             { key: 'reposicao_volemica', label: 'Reposição volêmica 30mL/kg de cristaloides (peso / volume / solução)', estacao: 'emerg_enf', tipoCampo: 'valor', obrigatoria: false, metaMinutos: 180 },
             { key: 'segundo_lactato', label: 'Segunda coleta de lactato (pós-ressuscitação volêmica)', estacao: 'laboratorio', tipoCampo: 'valor', unidade: 'mg/dL', obrigatoria: false },
             { key: 'vasopressor', label: 'Noradrenalina iniciada (se PAM <65mmHg após volume) e acesso central providenciado', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: false },
-            { key: 'destino', label: 'Destino definido', estacao: 'emerg_medico', tipoCampo: 'select_horario', obrigatoria: true, opcoes: ['UTI', 'Internação'] }
+            { key: 'destino', label: 'Destino definido', estacao: 'emerg_medico', tipoCampo: 'select_horario', obrigatoria: true, opcoes: ['UTI', 'Internação'] },
+            { key: 'hospital_destino', label: 'Hospital de destino (se transferência)', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: false }
         ]
     },
     dor_toracica: {
@@ -310,20 +311,24 @@ function mudarView(view) {
     g('tab-' + view).classList.add('active');
     g('view-andamento').style.display = view === 'andamento' ? 'flex' : 'none';
     g('view-andamento-cards').style.display = view === 'andamento' ? 'block' : 'none';
+    g('view-desfechos').style.display = view === 'desfechos' ? 'flex' : 'none';
     g('view-relatorios').style.display = view === 'relatorios' ? 'flex' : 'none';
     g('btn-novo-protocolo').style.display = view === 'andamento' ? 'flex' : 'none';
     if (view === 'relatorios') renderRelatorios();
+    if (view === 'desfechos') renderDesfechos();
 }
 
 function renderView() {
     if (viewAtual === 'andamento') renderProtocolos();
-    else renderRelatorios();
+    else if (viewAtual === 'desfechos') renderDesfechos();
+    else if (viewAtual === 'relatorios') renderRelatorios();
     atualizarContadores();
 }
 
 function atualizarContadores() {
     var ativos = protocolos.filter(function(p) { return p.status === 'ativo'; });
     g('tab-count-andamento').innerText = ativos.length;
+    g('tab-count-desfechos').innerText = protocolosDesfechoPendente().length;
     var porTipo = { sepse: 0, dor_toracica: 0, avc: 0 };
     ativos.forEach(function(p) { if (porTipo[p.tipo] != null) porTipo[p.tipo]++; });
     var h = '';
@@ -477,7 +482,8 @@ function salvarNovoProtocolo() {
         criadoPor: { uid: usuarioAtual.uid, email: usuarioAtual.email, nome: usuarioAtual.nome || null, cargo: usuarioAtual.cargo || null, estacao: getEstacaoAtual(), sessaoId: SESSAO_ID },
         etapas: etapas,
         timeline: [{ ts: agora, autor: nomeDe(usuarioAtual), estacao: getEstacaoAtual(), texto: 'Protocolo de ' + tipoInfo.label + ' aberto.' }],
-        finalizadoEm: null, finalizadoPor: null, desfecho: null, canceladoMotivo: null, pdfGeradoEm: null
+        finalizadoEm: null, finalizadoPor: null, desfecho: null, canceladoMotivo: null, pdfGeradoEm: null,
+        desfechoFinal: null, desfechoFinalEm: null, desfechoFinalPor: null
     };
     db.collection('protocolos').add(doc).then(function(ref) {
         fecharTodosModais();
@@ -520,7 +526,15 @@ function renderDetalheProtocolo(id) {
         h += '<textarea id="obs-texto" placeholder="Anotação livre sobre a evolução do caso..." style="flex:1;"></textarea>';
         h += '</div><button class="btn-padrao" style="align-self:flex-start;" onclick="adicionarObservacao(\'' + p.id + '\')">Adicionar à linha do tempo</button></div>';
     } else {
-        h += '<div class="field"><label>Desfecho</label><input type="text" value="' + esc(p.desfecho || p.canceladoMotivo || '--') + '" disabled></div>';
+        h += '<div class="field"><label>Desfecho do Pronto-Socorro</label><input type="text" value="' + esc(p.desfecho || p.canceladoMotivo || '--') + '" disabled></div>';
+        if (p.desfechoFinal) {
+            h += '<div class="field"><label>Desfecho Final do Paciente</label><input type="text" value="' + esc(p.desfechoFinal + ' — ' + fmtDataHora(p.desfechoFinalEm) + ' (' + (p.desfechoFinalPor || '--') + ')') + '" disabled></div>';
+        } else {
+            h += '<div class="field"><label>Desfecho Final do Paciente</label><div class="desfecho-actions" style="margin-top:6px;">';
+            h += '<button class="etapa-btn-mini success" onclick="marcarDesfechoFinal(\'' + p.id + '\', \'Alta Hospitalar\')">Alta Hospitalar</button>';
+            h += '<button class="etapa-btn-mini danger" onclick="marcarDesfechoFinal(\'' + p.id + '\', \'Óbito\')">Óbito</button>';
+            h += '</div></div>';
+        }
     }
 
     h += '<div class="field"><label>Linha do tempo</label><div class="timeline-list">';
@@ -762,6 +776,84 @@ function reimprimirPDF(protocoloId) {
     gerarPDFProtocolo(p).then(function(doc) { window.open(doc.output('bloburl'), '_blank'); });
 }
 
+// ===== DESFECHOS FINAIS DO PACIENTE (alta hospitalar / óbito, pós-protocolo) =====
+function marcarDesfechoFinal(protocoloId, valor) {
+    var p = protocoloPorId(protocoloId);
+    if (!p) return;
+    if (!confirm('Confirma o desfecho final de "' + valor + '" para ' + ((p.paciente && p.paciente.nome) || 'este paciente') + '?')) return;
+    var agora = agoraISO();
+    var timeline = (p.timeline || []).concat([{ ts: agora, autor: nomeDe(usuarioAtual), estacao: getEstacaoAtual(), texto: 'Desfecho final do paciente: ' + valor }]);
+    db.collection('protocolos').doc(protocoloId).update({ desfechoFinal: valor, desfechoFinalEm: agora, desfechoFinalPor: nomeDe(usuarioAtual), timeline: timeline })
+        .then(function() { mostrarToast('Desfecho final registrado', valor); })
+        .catch(function(err) { alert('Erro ao registrar desfecho final: ' + err.message); });
+}
+function desfazerDesfechoFinal(protocoloId) {
+    var p = protocoloPorId(protocoloId);
+    if (!p) return;
+    if (!confirm('Desfazer o desfecho final registrado?')) return;
+    var agora = agoraISO();
+    var timeline = (p.timeline || []).concat([{ ts: agora, autor: nomeDe(usuarioAtual), estacao: getEstacaoAtual(), texto: 'Desfeito o registro de desfecho final.' }]);
+    db.collection('protocolos').doc(protocoloId).update({ desfechoFinal: null, desfechoFinalEm: null, desfechoFinalPor: null, timeline: timeline })
+        .catch(function(err) { alert('Erro ao desfazer: ' + err.message); });
+}
+
+function protocolosDesfechoPendente() {
+    return protocolos.filter(function(p) { return p.status !== 'ativo' && !p.desfechoFinal; })
+        .sort(function(a, b) { return new Date(b.finalizadoEm || b.criadoEm) - new Date(a.finalizadoEm || a.criadoEm); });
+}
+function protocolosDesfechoConcluido() {
+    return protocolos.filter(function(p) { return !!p.desfechoFinal; })
+        .sort(function(a, b) { return new Date(b.desfechoFinalEm) - new Date(a.desfechoFinalEm); });
+}
+
+var desfechosSubTab = 'pendentes';
+function renderDesfechos() {
+    var el = g('view-desfechos');
+    var h = '<div class="rel-toolbar"><div class="rel-tipos">';
+    h += '<button class="rel-tipo-btn' + (desfechosSubTab === 'pendentes' ? ' on' : '') + '" onclick="mudarSubTabDesfechos(\'pendentes\')">Pendentes</button>';
+    h += '<button class="rel-tipo-btn' + (desfechosSubTab === 'concluidos' ? ' on' : '') + '" onclick="mudarSubTabDesfechos(\'concluidos\')">Concluídos</button>';
+    h += '</div></div><div class="rel-page" id="desfechos-page"></div>';
+    el.innerHTML = h;
+    renderizarPaginaDesfechos();
+}
+function mudarSubTabDesfechos(t) { desfechosSubTab = t; renderDesfechos(); }
+
+function renderizarPaginaDesfechos() {
+    var el = g('desfechos-page');
+    var pendente = desfechosSubTab === 'pendentes';
+    var lista = pendente ? protocolosDesfechoPendente() : protocolosDesfechoConcluido();
+
+    var h = '<div class="rel-header"><h2>Desfechos ' + (pendente ? 'Pendentes' : 'Concluídos') + '</h2><span>' + lista.length + ' paciente(s)</span></div>';
+
+    if (!lista.length) {
+        h += '<div class="rel-empty">' + (pendente ? 'Nenhum paciente aguardando desfecho final.' : 'Nenhum desfecho final registrado ainda.') + '</div>';
+        el.innerHTML = h;
+        return;
+    }
+
+    h += '<div class="rel-list">';
+    lista.forEach(function(p) {
+        var tipoInfo = TIPOS[p.tipo] || { label: p.tipo };
+        var nome = (p.paciente && p.paciente.nome) ? p.paciente.nome : '(sem nome)';
+        var statusTxt = p.status === 'finalizado' ? ('Desfecho do PS: ' + (p.desfecho || '--')) : ('Excluído: ' + (p.canceladoMotivo || '--'));
+        var sub = [tipoInfo.label, (p.paciente && p.paciente.prontuario ? 'Pront. ' + p.paciente.prontuario : ''), (p.paciente && p.paciente.convenio), statusTxt, 'Encerrado em ' + fmtDataHora(p.finalizadoEm)].filter(Boolean).join(' · ');
+        h += '<div class="rel-list-row clicavel" onclick="abrirDetalheProtocolo(\'' + p.id + '\')">';
+        h += '<div class="rel-list-main"><div class="rel-list-label">' + escHtml(nome) + '</div><div class="rel-list-sub">' + esc(sub) + '</div></div>';
+        if (pendente) {
+            h += '<div class="desfecho-actions" onclick="event.stopPropagation();">';
+            h += '<button class="etapa-btn-mini success" onclick="marcarDesfechoFinal(\'' + p.id + '\', \'Alta Hospitalar\')">Alta Hospitalar</button>';
+            h += '<button class="etapa-btn-mini danger" onclick="marcarDesfechoFinal(\'' + p.id + '\', \'Óbito\')">Óbito</button>';
+            h += '</div>';
+        } else {
+            var cor = p.desfechoFinal === 'Óbito' ? 'var(--danger)' : 'var(--success)';
+            h += '<div class="desfecho-final-badge" style="color:' + cor + ';border-color:' + cor + ';" onclick="event.stopPropagation();">' + esc(p.desfechoFinal) + '<span class="desfecho-desfazer" onclick="desfazerDesfechoFinal(\'' + p.id + '\')">desfazer</span></div>';
+        }
+        h += '</div>';
+    });
+    h += '</div>';
+    el.innerHTML = h;
+}
+
 // ===== GERAÇÃO DE PDF — RECRIAÇÃO NATIVA DOS FORMULÁRIOS INSTITUCIONAIS =====
 // Cada página dos formulários físicos da Hapvida/NotreDame Intermédica é redesenhada do
 // zero em vetor (linhas, caixas, textos) — não é usada nenhuma imagem escaneada como fundo.
@@ -953,7 +1045,7 @@ function desenharSepseP1(doc, w, h, p, logo) {
 
     var paragrafos = [
         'Diante da suspeita clínica de sepse, cada segundo é crucial. Para garantir uma resposta mais',
-        'eficaz, siga os passos listados a seguir.', '',
+        'eficaz, siga os passos listados no verso deste impresso.', '',
         'Sua participação é fundamental no combate a essa doença. Contamos com seu comprometimento',
         'e cuidado para juntos fazermos a diferença na vida dos nossos pacientes.'
     ];
@@ -963,93 +1055,106 @@ function desenharSepseP1(doc, w, h, p, logo) {
 
 function desenharSepseP2(doc, w, h, p) {
     var e = function(k) { return etapaPorChave(p, k); };
+    var vh = function(k) { var et = e(k); if (!et || !et.feita) return ''; var hr = textoEtapaHora(et); return (et.valor || '') + (hr ? ' — ' + hr : ''); };
     var CX0 = 0.375, CX1 = 0.700, CXM = (CX0 + CX1) / 2;
     var AX0 = 0.715, AX1 = 0.975;
+    var AXL0 = 0.025, AXL1 = 0.345;
 
-    circ(doc, w, h, 0.130, 0.045, 0.018, { preench: [0, 0, 0] });
-    seta(doc, w, h, 0.150, 0.045, CX0, 0.045);
-    caixaFluxo(doc, w, h, CX0, 0.028, CX1, 0.098, ['Pelo menos dois critérios de SIRS', 'e/ou critério de disfunção orgânica.']);
-    seta(doc, w, h, CXM, 0.098, CXM, 0.128);
-    caixaFluxo(doc, w, h, CX0, 0.128, CX1, 0.198, ['Realizar a abertura do protocolo de sepse', 'e comunicar ao médico imediatamente.']);
-    lin(doc, w, h, CX1, 0.163, AX0, 0.163, { tracejado: true });
-    caixaAnotacao(doc, w, h, AX0, 0.128, AX1, 0.212, 'Avaliação médica:');
-    campoLinha(doc, w, h, AX0 + 0.012, 0.171, 0.220, 'Horário:', textoEtapaHora(e('avaliacao_medica')), { tam: 7.2 });
-    txt(doc, w, h, AX0 + 0.012, 0.194, 'Carimbo Médico: ____________', { tam: 6.8 });
+    circ(doc, w, h, 0.130, 0.028, 0.014, { preench: [0, 0, 0] });
+    seta(doc, w, h, 0.150, 0.028, CX0, 0.028);
+    caixaFluxo(doc, w, h, CX0, 0.014, CX1, 0.068, ['Pelo menos dois critérios de SIRS', 'e/ou critério de disfunção orgânica.']);
+    seta(doc, w, h, CXM, 0.068, CXM, 0.092);
+    caixaFluxo(doc, w, h, CX0, 0.092, CX1, 0.146, ['Realizar a abertura do protocolo de sepse', 'e comunicar ao médico imediatamente.']);
+    lin(doc, w, h, CX1, 0.119, AX0, 0.119, { tracejado: true });
+    caixaAnotacao(doc, w, h, AX0, 0.092, AX1, 0.158, 'Avaliação médica:');
+    campoLinha(doc, w, h, AX0 + 0.012, 0.123, 0.220, 'Horário:', textoEtapaHora(e('avaliacao_medica')), { tam: 7.2 });
+    txt(doc, w, h, AX0 + 0.012, 0.144, 'Carimbo Médico: ____________', { tam: 6.8 });
 
-    txt(doc, w, h, CXM, 0.216, 'Há suspeita ou confirmação da presença', { tam: 7.6, align: 'center' });
-    txt(doc, w, h, CXM, 0.228, 'de infecção?', { tam: 7.6, align: 'center' });
-    seta(doc, w, h, CXM, 0.198, CXM, 0.235);
-    diam(doc, w, h, CXM, 0.268, 0.085, 0.033, { preench: [222, 232, 248] });
-    txt(doc, w, h, CXM + 0.010, 0.253, 'Não', { tam: 7.4, negrito: true });
-    seta(doc, w, h, CX1, 0.268, AX0, 0.268);
-    caixaFluxo(doc, w, h, AX0, 0.250, 0.800, 0.288, ['Excluir do protocolo'], { preench: [222, 222, 222], tam: 7 });
-    seta(doc, w, h, 0.800, 0.268, 0.850, 0.268);
-    caixaFluxo(doc, w, h, 0.850, 0.244, 0.968, 0.293, ['Seguir com atendimento', 'fora do protocolo'], { preench: [222, 222, 222], tam: 6.4 });
-    circ(doc, w, h, 0.977, 0.268, 0.013, { preench: [0, 0, 0] });
-    caixaAnotacao(doc, w, h, AX0, 0.300, AX1, 0.390, 'Exclusão:');
-    campoLinha(doc, w, h, AX0 + 0.012, 0.343, 0.220, 'Data/Hora:', p.status === 'cancelado' ? fmtDataHora(p.finalizadoEm) : '', { tam: 6.8 });
-    txt(doc, w, h, AX0 + 0.012, 0.366, 'Carimbo Médico: ____________', { tam: 6.6 });
+    txt(doc, w, h, CXM, 0.162, 'Há suspeita ou confirmação da presença', { tam: 7.4, align: 'center' });
+    txt(doc, w, h, CXM, 0.173, 'de infecção?', { tam: 7.4, align: 'center' });
+    seta(doc, w, h, CXM, 0.146, CXM, 0.182);
+    diam(doc, w, h, CXM, 0.208, 0.080, 0.026, { preench: [222, 232, 248] });
+    txt(doc, w, h, CXM + 0.010, 0.196, 'Não', { tam: 7.2, negrito: true });
+    seta(doc, w, h, CX1, 0.208, AX0, 0.208);
+    caixaFluxo(doc, w, h, AX0, 0.194, 0.800, 0.222, ['Excluir do protocolo'], { preench: [222, 222, 222], tam: 6.6 });
+    seta(doc, w, h, 0.800, 0.208, 0.850, 0.208);
+    caixaFluxo(doc, w, h, 0.850, 0.188, 0.968, 0.228, ['Seguir com atendimento', 'fora do protocolo'], { preench: [222, 222, 222], tam: 6.2 });
+    circ(doc, w, h, 0.977, 0.208, 0.012, { preench: [0, 0, 0] });
+    caixaAnotacao(doc, w, h, AX0, 0.236, AX1, 0.296, 'Exclusão:');
+    campoLinha(doc, w, h, AX0 + 0.012, 0.266, 0.220, 'Data/Hora:', (p.status === 'cancelado' && (TIPOS.sepse.motivosExclusao || [])[0] === p.canceladoMotivo) ? fmtDataHora(p.finalizadoEm) : '', { tam: 6.8 });
+    txt(doc, w, h, AX0 + 0.012, 0.286, 'Carimbo Médico: ____________', { tam: 6.4 });
 
-    txt(doc, w, h, CXM + 0.010, 0.308, 'Sim', { tam: 7.4, negrito: true });
-    seta(doc, w, h, CXM, 0.301, CXM, 0.335);
-    caixaFluxo(doc, w, h, CX0, 0.335, CX1, 0.380, ['Solicitar e coletar pacote sepse 1 hora']);
-    lin(doc, w, h, CX0, 0.358, 0.345, 0.358, { tracejado: true });
-    caixaAnotacao(doc, w, h, 0.025, 0.335, 0.345, 0.470, 'Coleta de exames:');
-    campoLinha(doc, w, h, 0.037, 0.383, 0.290, 'Hemocultura:', textoEtapaHora(e('hemoculturas')), { tam: 7 });
-    campoLinha(doc, w, h, 0.037, 0.408, 0.290, 'Lactato — horário:', textoEtapaHora(e('lactato')), { tam: 7 });
-    campoLinha(doc, w, h, 0.037, 0.433, 0.290, 'Lactato — resultado:', (function() { var l = e('lactato'); return l && l.feita ? l.valor + (l.unidade ? ' ' + l.unidade : '') : ''; })(), { tam: 7 });
+    txt(doc, w, h, CXM + 0.010, 0.242, 'Sim', { tam: 7.2, negrito: true });
+    seta(doc, w, h, CXM, 0.234, CXM, 0.264);
+    caixaFluxo(doc, w, h, CX0, 0.264, CX1, 0.304, ['Solicitar e coletar pacote sepse 1 hora']);
+    lin(doc, w, h, CX0, 0.284, AXL1, 0.284, { tracejado: true });
+    caixaAnotacao(doc, w, h, AXL0, 0.264, AXL1, 0.374, 'Coleta de exames:');
+    campoLinha(doc, w, h, AXL0 + 0.012, 0.298, 0.290, 'Hemocultura:', textoEtapaHora(e('hemoculturas')), { tam: 7 });
+    campoLinha(doc, w, h, AXL0 + 0.012, 0.322, 0.290, 'Lactato — horário:', textoEtapaHora(e('lactato')), { tam: 7 });
+    campoLinha(doc, w, h, AXL0 + 0.012, 0.346, 0.290, 'Lactato — resultado:', (function() { var l = e('lactato'); return l && l.feita ? l.valor + (l.unidade ? ' ' + l.unidade : '') : ''; })(), { tam: 7 });
 
-    seta(doc, w, h, CXM, 0.380, CXM, 0.412);
-    caixaFluxo(doc, w, h, CX0, 0.412, CX1, 0.470, ['Definir foco infeccioso e', 'prescrever antibioticoterapia']);
-    lin(doc, w, h, CX1, 0.441, AX0, 0.441, { tracejado: true });
-    caixaAnotacao(doc, w, h, AX0, 0.412, AX1, 0.520, 'Antibioticoterapia / Foco:');
-    campoLinha(doc, w, h, AX0 + 0.012, 0.455, 0.230, 'Foco:', (function() { var f = e('foco_infeccioso'); return f && f.feita ? f.valor : ''; })(), { tam: 6.8 });
-    campoLinha(doc, w, h, AX0 + 0.012, 0.480, 0.230, 'ATB — horário:', textoEtapaHora(e('atb')), { tam: 6.8 });
-    campoLinha(doc, w, h, AX0 + 0.012, 0.503, 0.230, 'ATB — nome:', '', { tam: 6.8 });
+    seta(doc, w, h, CXM, 0.304, CXM, 0.332);
+    txt(doc, w, h, CXM, 0.340, 'Há presença de sinais de choque?', { tam: 7.4, align: 'center' });
+    diam(doc, w, h, CXM, 0.364, 0.058, 0.020, { preench: [222, 232, 248] });
+    seta(doc, w, h, CXM, 0.384, CXM, 0.398);
+    caixaFluxo(doc, w, h, CX0, 0.398, CX1, 0.440, [
+        'Se sim (choque séptico): administrar ATB em até 1h.',
+        'Se não: administrar ATB em até 3h (sepse sem choque).'
+    ], { preench: [222, 222, 222], tam: 6.4, negrito: false });
 
-    txt(doc, w, h, CXM, 0.500, 'Há disfunção orgânica após o resultado', { tam: 7.6, align: 'center' });
-    txt(doc, w, h, CXM, 0.512, 'do pacote sepse?', { tam: 7.6, align: 'center' });
-    seta(doc, w, h, CXM, 0.470, CXM, 0.520);
-    diam(doc, w, h, CXM, 0.553, 0.085, 0.032, { preench: [222, 232, 248] });
-    txt(doc, w, h, CXM + 0.010, 0.539, 'Não', { tam: 7.4, negrito: true });
-    seta(doc, w, h, CX1, 0.553, AX0, 0.553);
-    caixaFluxo(doc, w, h, AX0, 0.535, 0.800, 0.572, ['Excluir protocolo'], { preench: [222, 222, 222], tam: 7 });
-    seta(doc, w, h, 0.800, 0.553, 0.850, 0.553);
-    caixaFluxo(doc, w, h, 0.850, 0.529, 0.968, 0.577, ['Seguir com atendimento', 'fora do protocolo'], { preench: [222, 222, 222], tam: 6.4 });
-    circ(doc, w, h, 0.977, 0.553, 0.013, { preench: [0, 0, 0] });
-    caixaAnotacao(doc, w, h, AX0, 0.584, AX1, 0.674, 'Exclusão:');
-    campoLinha(doc, w, h, AX0 + 0.012, 0.627, 0.220, 'Data/Hora:', (p.status === 'cancelado' && (TIPOS.sepse.motivosExclusao || []).indexOf(p.canceladoMotivo) === 1) ? fmtDataHora(p.finalizadoEm) : '', { tam: 6.8 });
-    txt(doc, w, h, AX0 + 0.012, 0.650, 'Carimbo Médico: ____________', { tam: 6.6 });
+    seta(doc, w, h, CXM, 0.440, CXM, 0.454);
+    caixaFluxo(doc, w, h, CX0, 0.454, CX1, 0.508, ['Definir foco infeccioso e', 'prescrever antibioticoterapia']);
+    lin(doc, w, h, CX1, 0.481, AX0, 0.481, { tracejado: true });
+    caixaAnotacao(doc, w, h, AX0, 0.336, AX1, 0.472, 'Antibioticoterapia / Foco:');
+    campoLinha(doc, w, h, AX0 + 0.012, 0.372, 0.230, 'Prescrição:', vh('atb_prescrito'), { tam: 6.6 });
+    campoLinha(doc, w, h, AX0 + 0.012, 0.397, 0.230, 'Administração:', vh('atb'), { tam: 6.6 });
+    campoLinha(doc, w, h, AX0 + 0.012, 0.422, 0.230, 'Foco:', (function() { var f = e('foco_infeccioso'); return f && f.feita ? f.valor : ''; })(), { tam: 6.6 });
+    txt(doc, w, h, AX0 + 0.012, 0.448, 'Carimbo Médico: ____________', { tam: 6.2 });
 
-    txt(doc, w, h, CXM + 0.010, 0.593, 'Sim', { tam: 7.4, negrito: true });
-    seta(doc, w, h, CXM, 0.585, CXM, 0.618);
-    caixaFluxo(doc, w, h, 0.360, 0.618, 0.700, 0.778, [
-        '• Reposição volêmica: 30 mL/kg de',
-        'cristaloides, ajustando conforme janelas',
-        'de perfusão (diurese, débito urinário,',
-        'enchimento capilar).',
-        '• Monitorar o paciente de 1/1h; débito',
-        'urinário de 2/2h.',
-        '• Se PAM < 65 mmHg, iniciar noradrenalina',
-        'e providenciar acesso central.',
-        '• Coleta de segunda amostra de lactato.'
-    ], { raio: 8, esp: 1.3, tam: 7 });
-    lin(doc, w, h, 0.360, 0.680, 0.345, 0.680, { tracejado: true });
-    caixaAnotacao(doc, w, h, 0.025, 0.640, 0.345, 0.820, 'Reposição volêmica / 2ª coleta:');
-    campoLinha(doc, w, h, 0.037, 0.688, 0.290, 'Volêmica — horário:', textoEtapaHora(e('reposicao_volemica')), { tam: 6.8 });
-    campoLinha(doc, w, h, 0.037, 0.721, 0.290, 'Peso/Volume/Solução:', (function() { var v = e('reposicao_volemica'); return v && v.feita ? v.valor : ''; })(), { tam: 6.6 });
-    campoLinha(doc, w, h, 0.037, 0.754, 0.290, '2º lactato — resultado:', (function() { var v = e('segundo_lactato'); return v && v.feita ? v.valor + (v.unidade ? ' ' + v.unidade : '') : ''; })(), { tam: 6.6 });
-    campoLinha(doc, w, h, 0.037, 0.787, 0.290, 'Noradrenalina/acesso:', e('vasopressor') && e('vasopressor').feita ? 'Sim' : '', { tam: 6.6 });
+    txt(doc, w, h, CXM, 0.518, 'Há disfunção orgânica após o resultado', { tam: 7.4, align: 'center' });
+    txt(doc, w, h, CXM, 0.529, 'do pacote sepse?', { tam: 7.4, align: 'center' });
+    seta(doc, w, h, CXM, 0.508, CXM, 0.538);
+    diam(doc, w, h, CXM, 0.568, 0.080, 0.026, { preench: [222, 232, 248] });
+    txt(doc, w, h, CXM + 0.010, 0.556, 'Não', { tam: 7.2, negrito: true });
+    seta(doc, w, h, CX1, 0.568, AX0, 0.568);
+    caixaFluxo(doc, w, h, AX0, 0.554, 0.800, 0.582, ['Excluir protocolo'], { preench: [222, 222, 222], tam: 6.6 });
+    seta(doc, w, h, 0.800, 0.568, 0.850, 0.568);
+    caixaFluxo(doc, w, h, 0.850, 0.548, 0.968, 0.588, ['Seguir com atendimento', 'fora do protocolo'], { preench: [222, 222, 222], tam: 6.2 });
+    circ(doc, w, h, 0.977, 0.568, 0.012, { preench: [0, 0, 0] });
+    caixaAnotacao(doc, w, h, AX0, 0.596, AX1, 0.656, 'Exclusão:');
+    campoLinha(doc, w, h, AX0 + 0.012, 0.626, 0.220, 'Data/Hora:', (p.status === 'cancelado' && (TIPOS.sepse.motivosExclusao || [])[1] === p.canceladoMotivo) ? fmtDataHora(p.finalizadoEm) : '', { tam: 6.8 });
+    txt(doc, w, h, AX0 + 0.012, 0.646, 'Carimbo Médico: ____________', { tam: 6.4 });
 
-    seta(doc, w, h, CXM, 0.778, CXM, 0.788);
-    caixaFluxo(doc, w, h, CX0, 0.788, CX1, 0.838, ['Definir o destino do paciente para', 'UTI ou Unidade de Internação.']);
-    lin(doc, w, h, CX1, 0.813, AX0, 0.813, { tracejado: true });
-    caixaAnotacao(doc, w, h, AX0, 0.788, AX1, 0.900, 'Destino / Desfecho:');
-    campoLinha(doc, w, h, AX0 + 0.012, 0.831, 0.230, 'Destino:', (function() { var d = e('destino'); return d && d.feita ? d.valor : ''; })(), { tam: 6.8 });
-    campoLinha(doc, w, h, AX0 + 0.012, 0.860, 0.230, 'Desfecho:', p.status === 'finalizado' ? (p.desfecho || '') : '', { tam: 6.8 });
+    txt(doc, w, h, CXM + 0.010, 0.602, 'Sim', { tam: 7.2, negrito: true });
+    seta(doc, w, h, CXM, 0.594, CXM, 0.624);
+    caixaFluxo(doc, w, h, 0.360, 0.624, 0.700, 0.760, [
+        '• Realizar reposição volêmica com 30 mL/kg de cristaloides,',
+        'ajustando conforme janelas de perfusão (diurese, débito',
+        'urinário e tempo de enchimento capilar).',
+        '• Monitorar o paciente de 1/1h; débito urinário de 2/2h,',
+        'passagem de sonda caso haja necessidade.',
+        '• Se PAM < 65 mmHg, iniciar noradrenalina e providenciar',
+        'passagem de acesso central.',
+        '• Coleta de segunda amostra do lactato.'
+    ], { raio: 8, esp: 1.3, tam: 6.6 });
+    lin(doc, w, h, 0.360, 0.700, AXL1, 0.700, { tracejado: true });
+    caixaAnotacao(doc, w, h, AXL0, 0.624, AXL1, 0.776, 'Reposição volêmica / 2ª coleta:');
+    campoLinha(doc, w, h, AXL0 + 0.012, 0.657, 0.290, 'Volêmica — horário:', textoEtapaHora(e('reposicao_volemica')), { tam: 6.6 });
+    campoLinha(doc, w, h, AXL0 + 0.012, 0.688, 0.290, 'Peso/Volume/Solução:', (function() { var v = e('reposicao_volemica'); return v && v.feita ? v.valor : ''; })(), { tam: 6.4 });
+    campoLinha(doc, w, h, AXL0 + 0.012, 0.719, 0.290, '2º lactato — resultado:', (function() { var v = e('segundo_lactato'); return v && v.feita ? v.valor + (v.unidade ? ' ' + v.unidade : '') : ''; })(), { tam: 6.4 });
+    campoLinha(doc, w, h, AXL0 + 0.012, 0.750, 0.290, 'Noradrenalina/acesso:', e('vasopressor') && e('vasopressor').feita ? 'Sim' : '', { tam: 6.4 });
 
-    seta(doc, w, h, CXM, 0.838, CXM, 0.868);
-    circ(doc, w, h, CXM, 0.882, 0.018, { preench: [0, 0, 0] });
+    seta(doc, w, h, CXM, 0.760, CXM, 0.776);
+    caixaFluxo(doc, w, h, CX0, 0.776, CX1, 0.822, ['Definir o destino do paciente para', 'UTI ou Unidade de Internação.']);
+    lin(doc, w, h, CX1, 0.799, AX0, 0.799, { tracejado: true });
+    caixaAnotacao(doc, w, h, AX0, 0.776, AX1, 0.938, 'Destino / Desfecho:');
+    campoLinha(doc, w, h, AX0 + 0.012, 0.812, 0.230, 'Destino:', vh('destino'), { tam: 6.6 });
+    campoLinha(doc, w, h, AX0 + 0.012, 0.836, 0.230, 'Hospital destino:', (function() { var hd = e('hospital_destino'); return hd && hd.feita ? hd.valor : ''; })(), { tam: 6.6 });
+    campoLinha(doc, w, h, AX0 + 0.012, 0.860, 0.230, 'Desfecho:', p.desfechoFinal ? (p.desfechoFinal + ' — ' + fmtDataCurta(p.desfechoFinalEm)) : '', { tam: 6.6 });
+    txt(doc, w, h, AX0 + 0.012, 0.886, 'Carimbo Médico: ____________', { tam: 6.4 });
+
+    seta(doc, w, h, CXM, 0.822, CXM, 0.848);
+    circ(doc, w, h, CXM, 0.862, 0.016, { preench: [0, 0, 0] });
 }
 
 // ===== PÁGINAS — DOR TORÁCICA =====
@@ -1641,6 +1746,20 @@ function renderizarPaginaRelatorio() {
         var subTxt = metaTxt + (r.registros ? (' · ' + r.dentro + ' de ' + r.registros + ' casos' + (r.media != null ? ' · média ' + fmtMin(r.media) : '')) : ' · sem casos elegíveis');
         h += '<div class="rel-list-row"><div class="rel-list-main"><div class="rel-list-label">' + esc(ind.titulo) + '</div><div class="rel-list-sub">' + subTxt + '</div></div>';
         h += '<div class="rel-list-bar-wrap"><div class="rel-list-track"><div class="rel-list-fill" style="width:' + (r.pct == null ? 0 : r.pct) + '%;background:' + cor + ';"></div></div><div class="rel-list-pct" style="color:' + cor + ';">' + pctTxt + '</div></div></div>';
+    });
+    h += '</div>';
+
+    h += '<div class="rel-header" style="margin-top:22px;"><h2>Pacientes do Período</h2><span>' + lista.length + ' registros</span></div>';
+    h += '<div class="rel-list">';
+    lista.slice().sort(function(a, b) { return new Date(b.criadoEm) - new Date(a.criadoEm); }).forEach(function(p) {
+        var nome = (p.paciente && p.paciente.nome) ? p.paciente.nome : '(sem nome)';
+        var sub = [(p.paciente && p.paciente.prontuario ? 'Pront. ' + p.paciente.prontuario : ''), (p.paciente && p.paciente.convenio), 'Abertura ' + fmtDataHora(p.criadoEm)].filter(Boolean).join(' · ');
+        var statusTxt = p.status === 'finalizado' ? (p.desfecho || 'Finalizado') : ('Excluído — ' + (p.canceladoMotivo || '--'));
+        var corStatus = p.status === 'finalizado' ? 'var(--success)' : 'var(--text-tertiary)';
+        h += '<div class="rel-list-row clicavel" onclick="abrirDetalheProtocolo(\'' + p.id + '\')">';
+        h += '<div class="rel-list-main"><div class="rel-list-label">' + escHtml(nome) + '</div><div class="rel-list-sub">' + esc(sub) + '</div></div>';
+        h += '<div class="rel-patient-status" style="color:' + corStatus + ';border-color:' + corStatus + ';">' + esc(statusTxt) + (p.desfechoFinal ? ' · ' + esc(p.desfechoFinal) : '') + '</div>';
+        h += '</div>';
     });
     h += '</div>';
 

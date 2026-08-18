@@ -90,6 +90,7 @@
     <div class="tabs-container">
         <div class="tabs-left">
             <button id="tab-andamento" class="tab-btn active" onclick="mudarView('andamento')">Em Andamento <span class="tab-count" id="tab-count-andamento">0</span></button>
+            <button id="tab-desfechos" class="tab-btn" onclick="mudarView('desfechos')">Desfechos dos Pacientes <span class="tab-count" id="tab-count-desfechos">0</span></button>
             <button id="tab-relatorios" class="tab-btn" onclick="mudarView('relatorios')">Relatórios</button>
         </div>
         <div class="mini-counters" id="mini-counters"></div>
@@ -112,6 +113,8 @@
             <p>Nenhum protocolo em andamento no momento.</p>
         </div>
     </div>
+
+    <div class="view-relatorios" id="view-desfechos" style="display:none;"></div>
 
     <div class="view-relatorios" id="view-relatorios" style="display:none;"></div>
 

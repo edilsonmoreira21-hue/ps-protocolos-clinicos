@@ -429,6 +429,12 @@ button { font-family: inherit; }
 .rel-list-pct { width: 58px; text-align: right; font-weight: 800; font-size: 15px; flex-shrink: 0; }
 .rel-empty { text-align: center; padding: 40px 20px; color: var(--text-tertiary); font-size: 13px; }
 .rel-footer { margin-top: 16px; font-size: 10.5px; color: var(--text-tertiary); font-style: italic; border-top: 1px solid var(--border); padding-top: 8px; }
+.rel-list-row.clicavel { cursor: pointer; transition: border-color .15s var(--ease); }
+.rel-list-row.clicavel:hover { border-color: var(--accent); }
+.desfecho-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.desfecho-final-badge { display: flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 800; padding: 6px 12px; border: 1px solid; border-radius: 20px; flex-shrink: 0; white-space: nowrap; }
+.desfecho-desfazer { font-size: 10.5px; font-weight: 700; color: var(--text-tertiary); text-decoration: underline; cursor: pointer; }
+.rel-patient-status { font-size: 11.5px; font-weight: 700; padding: 5px 12px; border: 1px solid; border-radius: 20px; flex-shrink: 0; white-space: nowrap; }
 @media (max-width: 700px) {
   .rel-list-row { flex-wrap: wrap; }
   .rel-list-bar-wrap { width: 100%; }
