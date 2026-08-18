@@ -122,11 +122,12 @@ var TIPOS = {
             { key: 'criterios_disfuncao', label: 'Critérios de disfunção orgânica identificados', estacao: 'porta', tipoCampo: 'multi', obrigatoria: true, opcoes: ['Hipotensão (PAS<90, PAM<65 ou queda de PA>40mmHg)', 'Oligúria (<=0,5mL/kg/h) ou creatinina >2mg/dL', 'PaO2/FiO2 <300 ou necessidade de O2 para SpO2>90%', 'Plaquetas <100.000/mm³ ou queda de 50% em 3 dias', 'Acidose metabólica inexplicável (BE<=5,0, lactato elevado)', 'Rebaixamento do nível de consciência, agitação, delirium', 'Aumento significativo de bilirrubinas (>2x o valor de referência)'] },
             { key: 'avaliacao_medica', label: 'Avaliação médica realizada, protocolo comunicado ao médico', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true },
             { key: 'suspeita_infeccao', label: 'Suspeita ou confirmação de infecção presente', estacao: 'emerg_medico', tipoCampo: 'decisao', obrigatoria: true, motivoDescarte: 'Sem suspeita ou confirmação de infecção após avaliação médica' },
+            { key: 'foco_infeccioso', label: 'Foco infeccioso presumido', estacao: 'emerg_medico', tipoCampo: 'select', obrigatoria: true, opcoes: ['Pulmonar', 'Urinário', 'Abdominal', 'Cutâneo', 'Neurológico', 'Outro'] },
+            { key: 'atb_prescrito', label: 'Antibiótico prescrito', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true },
             { key: 'hemoculturas', label: 'Coleta de hemocultura (pacote sepse 1ª hora)', estacao: 'laboratorio', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 60 },
             { key: 'lactato', label: 'Coleta de lactato (pacote sepse 1ª hora)', estacao: 'laboratorio', tipoCampo: 'valor', unidade: 'mg/dL', obrigatoria: true, metaMinutos: 60 },
-            { key: 'foco_infeccioso', label: 'Foco infeccioso definido (pulmonar / urinário / abdominal / cutâneo / neurológico / outro)', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true },
             { key: 'atb', label: 'Antibioticoterapia administrada (pacote sepse 1ª hora)', estacao: 'emerg_enf', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 60 },
-            { key: 'disfuncao_pos_pacote', label: 'Disfunção orgânica reavaliada após o pacote sepse', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: true },
+            { key: 'disfuncao_pos_pacote', label: 'Há disfunção orgânica após o resultado do pacote sepse?', estacao: 'emerg_medico', tipoCampo: 'decisao', obrigatoria: true, rotuloPositivo: 'Sim', rotuloNegativo: 'Não', motivoDescarte: 'Sem disfunção orgânica após o resultado do pacote sepse' },
             { key: 'reposicao_volemica', label: 'Reposição volêmica 30mL/kg de cristaloides (peso / volume / solução)', estacao: 'emerg_enf', tipoCampo: 'valor', obrigatoria: false, metaMinutos: 180 },
             { key: 'segundo_lactato', label: 'Segunda coleta de lactato (pós-ressuscitação volêmica)', estacao: 'laboratorio', tipoCampo: 'valor', unidade: 'mg/dL', obrigatoria: false },
             { key: 'vasopressor', label: 'Noradrenalina iniciada (se PAM <65mmHg após volume) e acesso central providenciado', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: false },
@@ -520,8 +521,14 @@ function renderEtapaItem(p, e, idx) {
             h += '<div class="etapa-valor-row"><input type="datetime-local" id="horario-' + idx + '" value="' + getLocalISO() + '">';
             h += '<button class="etapa-btn-mini primary" onclick="salvarEtapaHorario(\'' + p.id + '\',' + idx + ')">Registrar</button></div>';
         } else if (e.tipoCampo === 'decisao') {
-            h += '<div class="etapa-valor-row"><button class="etapa-btn-mini success" onclick="confirmarEtapaDecisao(\'' + p.id + '\',' + idx + ')">Confirmada</button>';
-            h += '<button class="etapa-btn-mini danger" onclick="descartarEtapaDecisao(\'' + p.id + '\',' + idx + ')">Descartada</button></div>';
+            h += '<div class="etapa-valor-row"><button class="etapa-btn-mini success" onclick="confirmarEtapaDecisao(\'' + p.id + '\',' + idx + ')">' + escHtml(e.rotuloPositivo || 'Confirmada') + '</button>';
+            h += '<button class="etapa-btn-mini danger" onclick="descartarEtapaDecisao(\'' + p.id + '\',' + idx + ')">' + escHtml(e.rotuloNegativo || 'Descartada') + '</button></div>';
+        } else if (e.tipoCampo === 'select') {
+            h += '<div class="etapa-valor-row"><select id="select-' + idx + '" onchange="document.getElementById(\'outro-wrap-' + idx + '\').style.display = this.value===\'Outro\'?\'flex\':\'none\';">';
+            h += '<option value="" selected disabled>Selecione...</option>';
+            (e.opcoes || []).forEach(function(op) { h += '<option value="' + esc(op) + '">' + escHtml(op) + '</option>'; });
+            h += '</select><button class="etapa-btn-mini primary" onclick="salvarEtapaSelect(\'' + p.id + '\',' + idx + ')">Salvar</button></div>';
+            h += '<div class="etapa-valor-row" id="outro-wrap-' + idx + '" style="display:none;"><input type="text" id="outro-' + idx + '" placeholder="Especifique"></div>';
         } else {
             h += '<div class="etapa-valor-row"><button class="etapa-btn-mini primary" onclick="marcarEtapaRapida(\'' + p.id + '\',' + idx + ')">Marcar feito agora</button></div>';
         }
@@ -572,22 +579,35 @@ function salvarEtapaHorario(protocoloId, idx) {
 }
 function confirmarEtapaDecisao(protocoloId, idx) {
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
-    atualizarEtapa(protocoloId, idx, { feita: true, valor: 'Confirmada', feitaEm: agoraISO(), feitaPor: usuarioAtual.email }, e.label + ': confirmada — protocolo segue em andamento');
+    var rotulo = e.rotuloPositivo || 'Confirmada';
+    atualizarEtapa(protocoloId, idx, { feita: true, valor: rotulo, feitaEm: agoraISO(), feitaPor: usuarioAtual.email }, e.label + ': ' + rotulo + ' — protocolo segue em andamento');
 }
 function descartarEtapaDecisao(protocoloId, idx) {
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
-    if (!confirm('Confirma que "' + e.label + '" foi descartada? O protocolo será encerrado automaticamente.')) return;
+    var rotulo = e.rotuloNegativo || 'Descartada';
+    if (!confirm('Confirma "' + rotulo + '" para "' + e.label + '"? O protocolo será encerrado automaticamente.')) return;
     var agora = agoraISO();
     var etapas = p.etapas.slice();
-    etapas[idx] = Object.assign({}, etapas[idx], { feita: true, valor: 'Descartada', feitaEm: agora, feitaPor: usuarioAtual.email });
-    var motivo = e.motivoDescarte || 'Descartada — ' + e.label;
+    etapas[idx] = Object.assign({}, etapas[idx], { feita: true, valor: rotulo, feitaEm: agora, feitaPor: usuarioAtual.email });
+    var motivo = e.motivoDescarte || (e.label + ': ' + rotulo);
     var timeline = (p.timeline || []).concat([
-        { ts: agora, autor: usuarioAtual.email, estacao: getEstacaoAtual(), texto: e.label + ': descartada' },
+        { ts: agora, autor: usuarioAtual.email, estacao: getEstacaoAtual(), texto: e.label + ': ' + rotulo },
         { ts: agora, autor: usuarioAtual.email, estacao: getEstacaoAtual(), texto: 'Protocolo cancelado: ' + motivo }
     ]);
     db.collection('protocolos').doc(protocoloId).update({ etapas: etapas, status: 'cancelado', canceladoMotivo: motivo, finalizadoEm: agora, finalizadoPor: usuarioAtual.email, timeline: timeline })
-        .then(function() { mostrarToast('Protocolo encerrado', e.label + ' descartada'); })
+        .then(function() { mostrarToast('Protocolo encerrado', e.label + ': ' + rotulo); })
         .catch(function(err) { alert('Erro ao atualizar: ' + err.message); });
+}
+function salvarEtapaSelect(protocoloId, idx) {
+    var select = g('select-' + idx); var valor = select.value;
+    if (!valor) { select.focus(); return; }
+    if (valor === 'Outro') {
+        var outroInput = g('outro-' + idx); var texto = outroInput.value.trim();
+        if (!texto) { outroInput.focus(); return; }
+        valor = texto;
+    }
+    var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
+    atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, feitaEm: agoraISO(), feitaPor: usuarioAtual.email }, e.label + ': ' + valor);
 }
 function desfazerEtapa(protocoloId, idx) {
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
@@ -1423,7 +1443,8 @@ var REL_INDICADORES = {
         { chave: 'hemoculturas', chaveComparar: 'atb', tipo: 'ordem', titulo: 'Coletada hemocultura antes da administração do antibiótico', obrigatoria: true },
         { chave: 'atb', tipo: 'tempo', titulo: 'Administrado antibiótico', meta: 60, obrigatoria: true },
         { chave: 'reposicao_volemica', tipo: 'binario', titulo: 'Prescrita hidratação EV pelo médico' },
-        { chave: 'reposicao_volemica', tipo: 'tempo', titulo: 'Hidratação checada pela enfermagem', meta: 60, obrigatoria: true }
+        { chave: 'reposicao_volemica', tipo: 'tempo', titulo: 'Hidratação checada pela enfermagem', meta: 60, obrigatoria: true },
+        { tipo: 'cancelamento', titulo: 'Protocolos encerrados por não haver disfunção orgânica', motivo: 'Sem disfunção orgânica após o resultado do pacote sepse', neutro: true }
     ],
     dor_toracica: [
         { chave: 'ecg', tipo: 'tempo', titulo: 'ECG realizado e interpretado pelo médico', meta: 10, obrigatoria: true },
@@ -1463,6 +1484,10 @@ function computarIndicador(lista, ind) {
             return new Date(e1.horario || e1.feitaEm).getTime() <= new Date(e2.horario || e2.feitaEm).getTime();
         }).length;
         return { registros: lista.length, dentro: dentroO, pct: lista.length ? (dentroO / lista.length * 100) : null, media: null };
+    }
+    if (ind.tipo === 'cancelamento') {
+        var nCanc = lista.filter(function(p) { return p.status === 'cancelado' && p.canceladoMotivo === ind.motivo; }).length;
+        return { registros: lista.length, dentro: nCanc, pct: lista.length ? (nCanc / lista.length * 100) : null, media: null };
     }
     if (ind.tipo === 'janela') {
         var elegiveisJ = lista.filter(function(p) { var e = etapaPorChave(p, ind.chave); return e && e.feita; });
@@ -1531,7 +1556,7 @@ function renderizarPaginaRelatorio() {
     h += '<div class="rel-list">';
     indicadores.forEach(function(ind) {
         var r = computarIndicador(lista, ind);
-        var cor = corBarraIndicador(r.pct);
+        var cor = ind.neutro ? 'var(--accent)' : corBarraIndicador(r.pct);
         var pctTxt = r.pct == null ? 'N/A' : Math.round(r.pct) + '%';
         var metaTxt = metaTextoIndicador(ind).replace('&le; ', '≤ ');
         var subTxt = metaTxt + (r.registros ? (' · ' + r.dentro + ' de ' + r.registros + ' casos' + (r.media != null ? ' · média ' + fmtMin(r.media) : '')) : ' · sem casos elegíveis');
@@ -1549,6 +1574,7 @@ function metaTextoIndicador(ind) {
     if (ind.tipo === 'binario') return 'registrada';
     if (ind.tipo === 'ordem') return 'ordem de coleta';
     if (ind.tipo === 'janela') return '&le; ' + ind.limiteTxt;
+    if (ind.tipo === 'cancelamento') return 'do total de protocolos';
     return '&le; ' + ind.meta + 'min';
 }
 
@@ -1581,6 +1607,9 @@ function exportarExcelRelatorio() {
             }
             if (ind.tipo === 'janela') {
                 linha.push(e && e.feita ? minutosEntre(p.horaReferencia, e.horario || e.feitaEm) : null); return;
+            }
+            if (ind.tipo === 'cancelamento') {
+                linha.push(p.status === 'cancelado' && p.canceladoMotivo === ind.motivo ? 'Sim' : 'Não'); return;
             }
             linha.push(e && e.feita ? minutosEntre(p.criadoEm, e.horario || e.feitaEm) : null);
         });
