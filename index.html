@@ -16,7 +16,7 @@
 <body>
 
 <div id="login-screen">
-    <div class="login-box">
+    <div class="login-box" id="login-box-login">
         <div class="login-mark">
             <img src="logo.png" alt="Hapvida">
         </div>
@@ -26,6 +26,25 @@
         <input type="password" id="senha" placeholder="Senha">
         <button onclick="fazerLogin()">Acessar Sistema</button>
         <div id="login-erro"></div>
+        <div class="login-alt-action" onclick="mostrarCadastro()">Cadastrar novo profissional</div>
+        <div class="lgpd-warning">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+            <div><strong>Atenção (LGPD):</strong> Este sistema lida com Dados Pessoais Sensíveis de saúde. O acesso é estritamente restrito à finalidade de assistência ao paciente. É terminantemente proibida a captura de tela, cópia indevida ou compartilhamento destas informações em ambientes não homologados.</div>
+        </div>
+    </div>
+    <div class="login-box" id="login-box-cadastro" style="display:none;">
+        <div class="login-mark">
+            <img src="logo.png" alt="Hapvida">
+        </div>
+        <h2>Cadastro de Profissional</h2>
+        <div class="subtitle">Pronto Socorro — Hospital Paulo Sacramento</div>
+        <input type="text" id="cad-nome" placeholder="Nome completo">
+        <input type="text" id="cad-cargo" placeholder="Cargo / Função">
+        <input type="email" id="cad-email" placeholder="E-mail corporativo">
+        <input type="password" id="cad-senha" placeholder="Senha (mínimo 6 caracteres)">
+        <button onclick="cadastrarProfissional()">Cadastrar e Acessar</button>
+        <div id="cadastro-erro"></div>
+        <div class="login-alt-action" onclick="mostrarLogin()">Já tenho cadastro — Entrar</div>
         <div class="lgpd-warning">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
             <div><strong>Atenção (LGPD):</strong> Este sistema lida com Dados Pessoais Sensíveis de saúde. O acesso é estritamente restrito à finalidade de assistência ao paciente. É terminantemente proibida a captura de tela, cópia indevida ou compartilhamento destas informações em ambientes não homologados.</div>
@@ -59,6 +78,7 @@
                 <button id="btn-arquivo" class="btn-padrao" onclick="configurarPastaArquivo()" title="Configurar pasta de arquivamento de PDFs">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
                 </button>
+                <div id="usuario-badge" class="usuario-badge"></div>
                 <button class="btn-padrao" onclick="fazerLogout()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
                     Sair

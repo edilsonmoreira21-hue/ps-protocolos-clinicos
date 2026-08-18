@@ -79,6 +79,10 @@ function abrirSeletorEstacao() {
 
 // ===== AUTENTICAÇÃO =====
 var usuarioAtual = null;
+function nomeDe(pessoa) {
+    if (!pessoa) return '--';
+    return pessoa.nome ? (pessoa.nome + (pessoa.cargo ? ' (' + pessoa.cargo + ')' : '')) : (pessoa.email || '--');
+}
 function fazerLogin() {
     var e = g('email').value, s = g('senha').value;
     var erroEl = g('login-erro');
@@ -90,10 +94,56 @@ function fazerLogin() {
 }
 function fazerLogout() { auth.signOut(); }
 
+function mostrarCadastro() { g('login-box-login').style.display = 'none'; g('login-box-cadastro').style.display = 'block'; }
+function mostrarLogin() { g('login-box-cadastro').style.display = 'none'; g('login-box-login').style.display = 'block'; }
+
+function cadastrarProfissional() {
+    var nome = g('cad-nome').value.trim();
+    var cargo = g('cad-cargo').value.trim();
+    var email = g('cad-email').value.trim();
+    var senha = g('cad-senha').value;
+    var erroEl = g('cadastro-erro');
+    if (erroEl) erroEl.style.display = 'none';
+    if (!nome || !cargo || !email || !senha) {
+        if (erroEl) { erroEl.innerText = 'Preencha todos os campos.'; erroEl.style.display = 'block'; }
+        return;
+    }
+    auth.createUserWithEmailAndPassword(email, senha).then(function(cred) {
+        var uid = cred.user.uid;
+        return db.collection('profissionais').doc(uid).set({ nome: nome, cargo: cargo, email: email, criadoEm: agoraISO() })
+            .then(function() { return cred.user.updateProfile({ displayName: nome }).catch(function() {}); })
+            .then(function() { return carregarPerfilProfissional(uid); });
+    }).catch(function(error) {
+        if (erroEl) { erroEl.innerText = 'Erro no cadastro: ' + error.message; erroEl.style.display = 'block'; }
+        else { alert('Erro no cadastro: ' + error.message); }
+    });
+}
+
+function carregarPerfilProfissional(uid) {
+    return db.collection('profissionais').doc(uid).get().then(function(doc) {
+        if (!doc.exists) return;
+        var d = doc.data();
+        if (!usuarioAtual || usuarioAtual.uid !== uid) usuarioAtual = { uid: uid, email: d.email };
+        usuarioAtual.nome = d.nome;
+        usuarioAtual.cargo = d.cargo;
+        atualizarBadgeUsuario();
+    }).catch(function(err) { console.error('Erro ao carregar perfil do profissional:', err); });
+}
+
+function atualizarBadgeUsuario() {
+    var el = g('usuario-badge');
+    if (!el || !usuarioAtual) return;
+    var nome = usuarioAtual.nome || usuarioAtual.email;
+    var sub = [usuarioAtual.cargo, usuarioAtual.email].filter(Boolean).join(' · ');
+    el.innerHTML = '<div class="usuario-badge-nome">' + escHtml(nome) + '</div><div class="usuario-badge-sub">' + escHtml(sub) + '</div>';
+}
+
 auth.onAuthStateChanged(function(user) {
     var loginScreen = g('login-screen'), appContent = g('app-content');
     if (user) {
-        usuarioAtual = { uid: user.uid, email: user.email };
+        if (!usuarioAtual || usuarioAtual.uid !== user.uid) usuarioAtual = { uid: user.uid, email: user.email };
+        atualizarBadgeUsuario();
+        carregarPerfilProfissional(user.uid);
         if (loginScreen) loginScreen.style.display = 'none';
         if (appContent) appContent.style.display = 'flex';
         g('estacao-label').innerText = getEstacaoAtual() ? estacaoTxt(getEstacaoAtual()) : 'Selecionar estação';
@@ -125,7 +175,7 @@ var TIPOS = {
             { key: 'avaliacao_medica', label: 'Avaliação médica realizada, protocolo comunicado ao médico', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true },
             { key: 'suspeita_infeccao', label: 'Suspeita ou confirmação de infecção presente', estacao: 'emerg_medico', tipoCampo: 'decisao', obrigatoria: true, motivoDescarte: 'Sem suspeita ou confirmação de infecção após avaliação médica' },
             { key: 'foco_infeccioso', label: 'Foco infeccioso presumido', estacao: 'emerg_medico', tipoCampo: 'select', obrigatoria: true, opcoes: ['Pulmonar', 'Urinário', 'Abdominal', 'Cutâneo', 'Neurológico', 'Outro'] },
-            { key: 'atb_prescrito', label: 'Antibiótico prescrito', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true },
+            { key: 'atb_prescrito', label: 'Antibiótico prescrito', estacao: 'emerg_medico', tipoCampo: 'valor_horario', obrigatoria: true, placeholder: 'Nome do antibiótico' },
             { key: 'hemoculturas', label: 'Coleta de hemocultura (pacote sepse 1ª hora)', estacao: 'laboratorio', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 60 },
             { key: 'lactato', label: 'Coleta de lactato (pacote sepse 1ª hora)', estacao: 'laboratorio', tipoCampo: 'valor', unidade: 'mg/dL', obrigatoria: true, metaMinutos: 60 },
             { key: 'atb', label: 'Antibioticoterapia administrada (pacote sepse 1ª hora)', estacao: 'emerg_enf', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 60 },
@@ -247,7 +297,7 @@ function notificarNovoProtocolo(p) {
     tocarBeep();
     var tipoInfo = TIPOS[p.tipo];
     var nomePac = (p.paciente && p.paciente.nome) ? p.paciente.nome : 'Paciente';
-    var autor = p.criadoPor ? (p.criadoPor.email + (p.criadoPor.estacao ? ' — ' + estacaoTxt(p.criadoPor.estacao) : '')) : '';
+    var autor = p.criadoPor ? (nomeDe(p.criadoPor) + (p.criadoPor.estacao ? ' — ' + estacaoTxt(p.criadoPor.estacao) : '')) : '';
     mostrarToast('Novo protocolo: ' + (tipoInfo ? tipoInfo.label : p.tipo), nomePac + (autor ? ' · aberto por ' + autor : ''), function() {
         mudarView('andamento'); abrirDetalheProtocolo(p.id);
     });
@@ -424,9 +474,9 @@ function salvarNovoProtocolo() {
         status: 'ativo',
         horaReferencia: g('np-referencia').value ? new Date(g('np-referencia').value).toISOString() : agora,
         criadoEm: agora,
-        criadoPor: { uid: usuarioAtual.uid, email: usuarioAtual.email, estacao: getEstacaoAtual(), sessaoId: SESSAO_ID },
+        criadoPor: { uid: usuarioAtual.uid, email: usuarioAtual.email, nome: usuarioAtual.nome || null, cargo: usuarioAtual.cargo || null, estacao: getEstacaoAtual(), sessaoId: SESSAO_ID },
         etapas: etapas,
-        timeline: [{ ts: agora, autor: usuarioAtual.email, estacao: getEstacaoAtual(), texto: 'Protocolo de ' + tipoInfo.label + ' aberto.' }],
+        timeline: [{ ts: agora, autor: nomeDe(usuarioAtual), estacao: getEstacaoAtual(), texto: 'Protocolo de ' + tipoInfo.label + ' aberto.' }],
         finalizadoEm: null, finalizadoPor: null, desfecho: null, canceladoMotivo: null, pdfGeradoEm: null
     };
     db.collection('protocolos').add(doc).then(function(ref) {
@@ -455,7 +505,7 @@ function renderDetalheProtocolo(id) {
     var h = '<div class="modal-header"><h3>' + esc(tipoInfo.label) + '</h3><button class="modal-close" onclick="fecharTodosModais()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>';
     h += '<div class="modal-body">';
     h += '<div class="detalhe-head"><div><div class="detalhe-nome">' + escHtml(nome) + '</div><div class="detalhe-sub">' + escHtml(sub || '—') + '</div>';
-    h += '<div class="detalhe-sub">Aberto em ' + fmtDataHora(p.criadoEm) + ' por ' + escHtml(p.criadoPor ? p.criadoPor.email : '--') + (p.criadoPor && p.criadoPor.estacao ? ' (' + esc(estacaoTxt(p.criadoPor.estacao)) + ')' : '') + '</div>';
+    h += '<div class="detalhe-sub">Aberto em ' + fmtDataHora(p.criadoEm) + ' por ' + escHtml(p.criadoPor ? nomeDe(p.criadoPor) : '--') + (p.criadoPor && p.criadoPor.estacao ? ' (' + esc(estacaoTxt(p.criadoPor.estacao)) + ')' : '') + '</div>';
     h += '<div class="detalhe-sub">' + esc(tipoInfo.labelReferencia) + ': ' + fmtDataHora(p.horaReferencia) + '</div></div>';
     var decorrido = minutosEntre(p.criadoEm);
     h += '<div class="timer-chip ' + urgenciaProtocolo(p) + '"><span>Tempo de porta</span><b>' + fmtMin(decorrido) + '</b></div>';
@@ -538,6 +588,10 @@ function renderEtapaItem(p, e, idx) {
             h += '</select></div>';
             h += '<div class="etapa-valor-row"><input type="datetime-local" id="horario-' + idx + '" value="' + getLocalISO() + '">';
             h += '<button class="etapa-btn-mini primary" onclick="salvarEtapaSelectHorario(\'' + p.id + '\',' + idx + ')">Registrar</button></div>';
+        } else if (e.tipoCampo === 'valor_horario') {
+            h += '<div class="etapa-valor-row"><input type="text" id="valor-' + idx + '" placeholder="' + esc(e.placeholder || 'Valor') + '"></div>';
+            h += '<div class="etapa-valor-row"><input type="datetime-local" id="horario-' + idx + '" value="' + getLocalISO() + '">';
+            h += '<button class="etapa-btn-mini primary" onclick="salvarEtapaValorHorario(\'' + p.id + '\',' + idx + ')">Registrar</button></div>';
         } else {
             h += '<div class="etapa-valor-row"><button class="etapa-btn-mini primary" onclick="marcarEtapaRapida(\'' + p.id + '\',' + idx + ')">Marcar feito agora</button></div>';
         }
@@ -556,19 +610,19 @@ function atualizarEtapa(protocoloId, idx, mudancas, textoTimeline) {
     var etapas = p.etapas.slice();
     etapas[idx] = Object.assign({}, etapas[idx], mudancas);
     var agora = agoraISO();
-    var timeline = (p.timeline || []).concat([{ ts: agora, autor: usuarioAtual.email, estacao: getEstacaoAtual(), texto: textoTimeline }]);
+    var timeline = (p.timeline || []).concat([{ ts: agora, autor: nomeDe(usuarioAtual), estacao: getEstacaoAtual(), texto: textoTimeline }]);
     db.collection('protocolos').doc(protocoloId).update({ etapas: etapas, timeline: timeline }).catch(function(err) { alert('Erro ao atualizar: ' + err.message); });
 }
 
 function marcarEtapaRapida(protocoloId, idx) {
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
-    atualizarEtapa(protocoloId, idx, { feita: true, feitaEm: agoraISO(), feitaPor: usuarioAtual.email }, 'Concluiu: ' + e.label);
+    atualizarEtapa(protocoloId, idx, { feita: true, feitaEm: agoraISO(), feitaPor: nomeDe(usuarioAtual) }, 'Concluiu: ' + e.label);
 }
 function salvarEtapaValor(protocoloId, idx) {
     var input = g('valor-' + idx); var valor = input.value.trim();
     if (!valor) { input.focus(); return; }
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
-    atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, feitaEm: agoraISO(), feitaPor: usuarioAtual.email }, e.label + ': ' + valor + (e.unidade ? ' ' + e.unidade : ''));
+    atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, feitaEm: agoraISO(), feitaPor: nomeDe(usuarioAtual) }, e.label + ': ' + valor + (e.unidade ? ' ' + e.unidade : ''));
 }
 function salvarEtapaMulti(protocoloId, idx) {
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
@@ -578,18 +632,18 @@ function salvarEtapaMulti(protocoloId, idx) {
         if (chk && chk.checked) selecionados.push(op);
     });
     var valor = selecionados.length ? selecionados.join('; ') : 'Nenhum critério presente';
-    atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, feitaEm: agoraISO(), feitaPor: usuarioAtual.email }, e.label + ': ' + valor);
+    atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, feitaEm: agoraISO(), feitaPor: nomeDe(usuarioAtual) }, e.label + ': ' + valor);
 }
 function salvarEtapaHorario(protocoloId, idx) {
     var input = g('horario-' + idx); if (!input.value) { input.focus(); return; }
     var horarioISO = new Date(input.value).toISOString();
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
-    atualizarEtapa(protocoloId, idx, { feita: true, horario: horarioISO, feitaEm: agoraISO(), feitaPor: usuarioAtual.email }, e.label + ' registrado às ' + fmtDataHora(horarioISO));
+    atualizarEtapa(protocoloId, idx, { feita: true, horario: horarioISO, feitaEm: agoraISO(), feitaPor: nomeDe(usuarioAtual) }, e.label + ' registrado às ' + fmtDataHora(horarioISO));
 }
 function confirmarEtapaDecisao(protocoloId, idx) {
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
     var rotulo = e.rotuloPositivo || 'Confirmada';
-    atualizarEtapa(protocoloId, idx, { feita: true, valor: rotulo, feitaEm: agoraISO(), feitaPor: usuarioAtual.email }, e.label + ': ' + rotulo + ' — protocolo segue em andamento');
+    atualizarEtapa(protocoloId, idx, { feita: true, valor: rotulo, feitaEm: agoraISO(), feitaPor: nomeDe(usuarioAtual) }, e.label + ': ' + rotulo + ' — protocolo segue em andamento');
 }
 function descartarEtapaDecisao(protocoloId, idx) {
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
@@ -597,13 +651,13 @@ function descartarEtapaDecisao(protocoloId, idx) {
     if (!confirm('Confirma "' + rotulo + '" para "' + e.label + '"? O protocolo será encerrado automaticamente.')) return;
     var agora = agoraISO();
     var etapas = p.etapas.slice();
-    etapas[idx] = Object.assign({}, etapas[idx], { feita: true, valor: rotulo, feitaEm: agora, feitaPor: usuarioAtual.email });
+    etapas[idx] = Object.assign({}, etapas[idx], { feita: true, valor: rotulo, feitaEm: agora, feitaPor: nomeDe(usuarioAtual) });
     var motivo = e.motivoDescarte || (e.label + ': ' + rotulo);
     var timeline = (p.timeline || []).concat([
-        { ts: agora, autor: usuarioAtual.email, estacao: getEstacaoAtual(), texto: e.label + ': ' + rotulo },
-        { ts: agora, autor: usuarioAtual.email, estacao: getEstacaoAtual(), texto: 'Protocolo cancelado: ' + motivo }
+        { ts: agora, autor: nomeDe(usuarioAtual), estacao: getEstacaoAtual(), texto: e.label + ': ' + rotulo },
+        { ts: agora, autor: nomeDe(usuarioAtual), estacao: getEstacaoAtual(), texto: 'Protocolo cancelado: ' + motivo }
     ]);
-    db.collection('protocolos').doc(protocoloId).update({ etapas: etapas, status: 'cancelado', canceladoMotivo: motivo, finalizadoEm: agora, finalizadoPor: usuarioAtual.email, timeline: timeline })
+    db.collection('protocolos').doc(protocoloId).update({ etapas: etapas, status: 'cancelado', canceladoMotivo: motivo, finalizadoEm: agora, finalizadoPor: nomeDe(usuarioAtual), timeline: timeline })
         .then(function() { mostrarToast('Protocolo encerrado', e.label + ': ' + rotulo); })
         .catch(function(err) { alert('Erro ao atualizar: ' + err.message); });
 }
@@ -616,7 +670,7 @@ function salvarEtapaSelect(protocoloId, idx) {
         valor = texto;
     }
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
-    atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, feitaEm: agoraISO(), feitaPor: usuarioAtual.email }, e.label + ': ' + valor);
+    atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, feitaEm: agoraISO(), feitaPor: nomeDe(usuarioAtual) }, e.label + ': ' + valor);
 }
 function salvarEtapaSelectHorario(protocoloId, idx) {
     var select = g('select-' + idx); var valor = select.value;
@@ -624,7 +678,15 @@ function salvarEtapaSelectHorario(protocoloId, idx) {
     var input = g('horario-' + idx); if (!input.value) { input.focus(); return; }
     var horarioISO = new Date(input.value).toISOString();
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
-    atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, horario: horarioISO, feitaEm: agoraISO(), feitaPor: usuarioAtual.email }, e.label + ': ' + valor + ' registrado às ' + fmtDataHora(horarioISO));
+    atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, horario: horarioISO, feitaEm: agoraISO(), feitaPor: nomeDe(usuarioAtual) }, e.label + ': ' + valor + ' registrado às ' + fmtDataHora(horarioISO));
+}
+function salvarEtapaValorHorario(protocoloId, idx) {
+    var valorInput = g('valor-' + idx); var valor = valorInput.value.trim();
+    if (!valor) { valorInput.focus(); return; }
+    var horarioInput = g('horario-' + idx); if (!horarioInput.value) { horarioInput.focus(); return; }
+    var horarioISO = new Date(horarioInput.value).toISOString();
+    var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
+    atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, horario: horarioISO, feitaEm: agoraISO(), feitaPor: nomeDe(usuarioAtual) }, e.label + ': ' + valor + ' — registrado às ' + fmtDataHora(horarioISO));
 }
 function desfazerEtapa(protocoloId, idx) {
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
@@ -637,7 +699,7 @@ function adicionarObservacao(protocoloId) {
     if (!texto) return;
     var p = protocoloPorId(protocoloId);
     var agora = agoraISO();
-    var timeline = (p.timeline || []).concat([{ ts: agora, autor: usuarioAtual.email, estacao: getEstacaoAtual(), texto: texto }]);
+    var timeline = (p.timeline || []).concat([{ ts: agora, autor: nomeDe(usuarioAtual), estacao: getEstacaoAtual(), texto: texto }]);
     db.collection('protocolos').doc(protocoloId).update({ timeline: timeline }).then(function() { g('obs-texto').value = ''; });
 }
 
@@ -660,8 +722,8 @@ function confirmarCancelamento(protocoloId) {
     if (!motivo) { g('canc-outro-texto').focus(); return; }
     var p = protocoloPorId(protocoloId);
     var agora = agoraISO();
-    var timeline = (p.timeline || []).concat([{ ts: agora, autor: usuarioAtual.email, estacao: getEstacaoAtual(), texto: 'Protocolo cancelado: ' + motivo }]);
-    db.collection('protocolos').doc(protocoloId).update({ status: 'cancelado', canceladoMotivo: motivo, finalizadoEm: agora, finalizadoPor: usuarioAtual.email, timeline: timeline })
+    var timeline = (p.timeline || []).concat([{ ts: agora, autor: nomeDe(usuarioAtual), estacao: getEstacaoAtual(), texto: 'Protocolo cancelado: ' + motivo }]);
+    db.collection('protocolos').doc(protocoloId).update({ status: 'cancelado', canceladoMotivo: motivo, finalizadoEm: agora, finalizadoPor: nomeDe(usuarioAtual), timeline: timeline })
         .then(function() { fecharTodosModais(); mostrarToast('Protocolo cancelado', motivo); });
 }
 
@@ -683,13 +745,13 @@ function finalizarProtocolo(protocoloId) {
     var obsFinal = g('fin-obs').value.trim();
     var agora = agoraISO();
     var pFinal = JSON.parse(JSON.stringify(p));
-    pFinal.status = 'finalizado'; pFinal.finalizadoEm = agora; pFinal.finalizadoPor = usuarioAtual.email; pFinal.desfecho = desfecho;
-    if (obsFinal) pFinal.timeline = (pFinal.timeline || []).concat([{ ts: agora, autor: usuarioAtual.email, estacao: getEstacaoAtual(), texto: 'Observação final: ' + obsFinal }]);
-    pFinal.timeline = (pFinal.timeline || []).concat([{ ts: agora, autor: usuarioAtual.email, estacao: getEstacaoAtual(), texto: 'Protocolo finalizado. Desfecho: ' + desfecho }]);
+    pFinal.status = 'finalizado'; pFinal.finalizadoEm = agora; pFinal.finalizadoPor = nomeDe(usuarioAtual); pFinal.desfecho = desfecho;
+    if (obsFinal) pFinal.timeline = (pFinal.timeline || []).concat([{ ts: agora, autor: nomeDe(usuarioAtual), estacao: getEstacaoAtual(), texto: 'Observação final: ' + obsFinal }]);
+    pFinal.timeline = (pFinal.timeline || []).concat([{ ts: agora, autor: nomeDe(usuarioAtual), estacao: getEstacaoAtual(), texto: 'Protocolo finalizado. Desfecho: ' + desfecho }]);
 
     gerarPDFProtocolo(pFinal).then(function(doc) {
         try { window.open(doc.output('bloburl'), '_blank'); } catch (e) { console.warn('Não foi possível abrir o PDF automaticamente.', e); }
-        db.collection('protocolos').doc(protocoloId).update({ status: 'finalizado', finalizadoEm: agora, finalizadoPor: usuarioAtual.email, desfecho: desfecho, timeline: pFinal.timeline, pdfGeradoEm: agora })
+        db.collection('protocolos').doc(protocoloId).update({ status: 'finalizado', finalizadoEm: agora, finalizadoPor: nomeDe(usuarioAtual), desfecho: desfecho, timeline: pFinal.timeline, pdfGeradoEm: agora })
             .then(function() { fecharTodosModais(); mostrarToast('Protocolo finalizado', 'PDF gerado e ' + (getPastaArquivoNome() ? 'salvo na pasta configurada' : 'baixado') + '.'); });
         salvarPDF(doc, nomeArquivoPDF(pFinal));
     });
@@ -869,7 +931,7 @@ function desenharSepseP1(doc, w, h, p, logo) {
     campoLinha(doc, w, h, 0.050, 0.136, 0.270, 'Data de nascimento:', '', { tam: 8 });
     campoLinha(doc, w, h, 0.360, 0.136, 0.230, 'Atendimento:', pac.prontuario, { tam: 8 });
     campoLinha(doc, w, h, 0.660, 0.136, 0.280, 'Hospital:', 'Hospital Paulo Sacramento', { tam: 8 });
-    campoLinha(doc, w, h, 0.050, 0.159, 0.400, 'Responsável pela abertura da ficha:', p.criadoPor ? p.criadoPor.email : '', { tam: 8 });
+    campoLinha(doc, w, h, 0.050, 0.159, 0.400, 'Responsável pela abertura da ficha:', p.criadoPor ? nomeDe(p.criadoPor) : '', { tam: 8 });
     campoLinha(doc, w, h, 0.580, 0.159, 0.155, 'Data:', fmtDataCurta(p.criadoEm), { tam: 8 });
     campoLinha(doc, w, h, 0.780, 0.159, 0.170, 'Hora:', fmtHoraCurta(p.criadoEm), { tam: 8 });
 
@@ -1006,7 +1068,7 @@ function desenharDorP1(doc, w, h, p, logo) {
     campoLinha(doc, w, h, 0.075, 0.198, 0.230, 'Data do atendimento:', fmtDataCurta(p.criadoEm), { tam: 7.6 });
     campoLinha(doc, w, h, 0.365, 0.198, 0.230, 'Horário da abertura:', fmtHoraCurta(p.criadoEm), { tam: 7.6 });
     txt(doc, w, h, 0.660, 0.198, 'Profissional responsável pela abertura:', { tam: 7.2 });
-    txt(doc, w, h, 0.660, 0.225, (p.criadoPor ? p.criadoPor.email : ''), { tam: 7.6, cor: COR_TINTA });
+    txt(doc, w, h, 0.660, 0.225, (p.criadoPor ? nomeDe(p.criadoPor) : ''), { tam: 7.6, cor: COR_TINTA });
 
     ret(doc, w, h, 0.06, 0.258, 0.94, 0.322, { esp: 1 });
     campoLinha(doc, w, h, 0.075, 0.278, 0.860, 'Queixa:', '', { tam: 7.6 });
@@ -1076,7 +1138,7 @@ function desenharDorP2(doc, w, h, p, logo) {
 
     var trop = etapaPorChave(p, 'troponina');
     campoLinha(doc, w, h, 0.135, 0.435, 0.330, 'Horário da Abertura do Protocolo:', fmtHoraCurta(p.criadoEm), { tam: 8.2 });
-    campoLinha(doc, w, h, 0.560, 0.435, 0.360, 'Responsável:', p.criadoPor ? p.criadoPor.email : '', { tam: 8.2 });
+    campoLinha(doc, w, h, 0.560, 0.435, 0.360, 'Responsável:', p.criadoPor ? nomeDe(p.criadoPor) : '', { tam: 8.2 });
     campoLinha(doc, w, h, 0.135, 0.470, 0.330, 'Horário da Coleta:', textoEtapaHora(trop), { tam: 8.2 });
     campoLinha(doc, w, h, 0.560, 0.470, 0.360, 'Responsável:', trop && trop.feita ? trop.feitaPor : '', { tam: 8.2 });
     campoLinha(doc, w, h, 0.135, 0.505, 0.330, 'Horário Recebimento no Laboratório:', '', { tam: 8.2 });
@@ -1248,7 +1310,7 @@ function desenharAvcP3(doc, w, h, p, logo) {
     txt(doc, w, h, 0.14, 0.385, '•  TTPA', { tam: 9.5 });
 
     campoLinha(doc, w, h, 0.135, 0.435, 0.330, 'Horário da Abertura do Protocolo:', fmtHoraCurta(p.criadoEm), { tam: 8.2 });
-    campoLinha(doc, w, h, 0.560, 0.435, 0.360, 'Responsável:', p.criadoPor ? p.criadoPor.email : '', { tam: 8.2 });
+    campoLinha(doc, w, h, 0.560, 0.435, 0.360, 'Responsável:', p.criadoPor ? nomeDe(p.criadoPor) : '', { tam: 8.2 });
     campoLinha(doc, w, h, 0.135, 0.470, 0.330, 'Horário da Coleta:', '', { tam: 8.2 });
     campoLinha(doc, w, h, 0.560, 0.470, 0.360, 'Responsável:', '', { tam: 8.2 });
     campoLinha(doc, w, h, 0.135, 0.505, 0.330, 'Horário Recebimento no Laboratório:', '', { tam: 8.2 });
@@ -1332,7 +1394,7 @@ function gerarPDFGenerico(p) {
         ];
         doc.text(infoPac.join('    '), margin, y); y += 14;
         doc.text((tipoInfo.labelReferencia || '') + ': ' + fmtDataHora(p.horaReferencia), margin, y); y += 12;
-        doc.text('Abertura do protocolo (porta): ' + fmtDataHora(p.criadoEm) + ' por ' + (p.criadoPor ? p.criadoPor.email : '--'), margin, y); y += 12;
+        doc.text('Abertura do protocolo (porta): ' + fmtDataHora(p.criadoEm) + ' por ' + (p.criadoPor ? nomeDe(p.criadoPor) : '--'), margin, y); y += 12;
         if (p.status !== 'ativo') { doc.text('Encerramento: ' + fmtDataHora(p.finalizadoEm) + ' — Desfecho: ' + (p.desfecho || p.canceladoMotivo || '--'), margin, y); y += 12; }
         y += 8;
 
