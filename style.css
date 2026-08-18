@@ -437,6 +437,10 @@ table.rel-data-table td.month { font-weight: 700; text-align: left; }
 .rel-table-wrap { overflow-x: auto; border-radius: 6px; }
 .rel-footer { margin-top: 14px; font-size: 10px; color: var(--rel-textgrey); font-style: italic; border-top: 1px solid #E4E4E4; padding-top: 6px; }
 .rel-empty { text-align: center; padding: 40px 20px; color: var(--text-tertiary); font-size: 13px; }
+.rel-two-col { display: flex; gap: 20px; margin-top: 4px; flex-wrap: wrap; }
+.rel-two-col .rel-col { flex: 1; min-width: 260px; }
+ul.rel-compact { margin: 6px 0 0; padding-left: 18px; }
+ul.rel-compact li { font-size: 12px; margin-bottom: 4px; line-height: 1.35; color: #262626; }
 
 /* ===== RESPONSIVIDADE ===== */
 @media (max-width: 900px) {

@@ -141,13 +141,13 @@ var TIPOS = {
             { key: 'eva', label: 'Escala de dor (EVA) registrada', estacao: 'emerg_enf', tipoCampo: 'valor', obrigatoria: true, metaMinutos: 10 },
             { key: 'atendimento_medico', label: 'Atendimento médico inicial realizado', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 10 },
             { key: 'ecg', label: 'ECG de 12 derivações realizado', estacao: 'emerg_enf', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 10 },
-            { key: 'avaliacao_ecg', label: 'Avaliação do ECG', estacao: 'emerg_medico', tipoCampo: 'multi', obrigatoria: true, opcoes: ['ECG normal', 'Supra de ST ou BRE novo/provavelmente novo', 'Infra de ST (>0,5mm)', 'Inversão ou simetria de onda T', 'Onda Q patológica', 'Alterações dinâmicas do ST', 'Arritmias ameaçadoras à vida (FV, TV)'] },
+            { key: 'avaliacao_ecg', label: 'Avaliação do ECG', estacao: 'emerg_medico', tipoCampo: 'multi', obrigatoria: true, metaMinutos: 15, opcoes: ['ECG normal', 'Supra de ST ou BRE novo/provavelmente novo', 'Infra de ST (>0,5mm)', 'Inversão ou simetria de onda T', 'Onda Q patológica', 'Alterações dinâmicas do ST', 'Arritmias ameaçadoras à vida (FV, TV)'] },
             { key: 'diagnostico', label: 'Diagnóstico definido (IAM com Supra ST / IAM sem Supra ST / Angina Instável / Outro)', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true },
             { key: 'sinais_alerta', label: 'Sinais de alerta e gravidade', estacao: 'emerg_medico', tipoCampo: 'multi', obrigatoria: false, opcoes: ['PA sistólica <=90 e/ou diastólica <60mmHg', 'Sonolência e/ou confusão mental', 'Má perfusão periférica (sudorese, extremidades frias)', 'FR>24irpm, taquidispneico, sintomas de congestão', 'Dor torácica intensa (EVA 9 ou 10)', 'Arritmia grave (FC<50 ou >150bpm)'] },
             { key: 'aas', label: 'AAS administrado (se sem contraindicação)', estacao: 'emerg_enf', tipoCampo: 'checkbox', obrigatoria: true, metaMinutos: 10 },
             { key: 'troponina', label: 'Coleta de marcadores de necrose miocárdica (troponina)', estacao: 'laboratorio', tipoCampo: 'valor', obrigatoria: true, metaMinutos: 30 },
             { key: 'rx_torax', label: 'RX de tórax realizado', estacao: 'imagem', tipoCampo: 'checkbox', obrigatoria: false, metaMinutos: 30 },
-            { key: 'telecardio', label: 'Conduta do TeleCardio recebida', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false },
+            { key: 'telecardio', label: 'Conduta do TeleCardio recebida', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false, metaMinutos: 30 },
             { key: 'porta_agulha', label: 'Fibrinólise — horário de administração de Alteplase (porta-agulha)', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false, metaMinutos: 30 },
             { key: 'porta_balao', label: 'Hemodinâmica — horário de abertura da artéria (porta-balão)', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false, metaMinutos: 90 },
             { key: 'destino', label: 'Destino definido', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: true }
@@ -1391,26 +1391,30 @@ function salvarPDF(doc, nomeArquivo) {
 // (sem interpretação/plano de ação — apenas os números). "obrigatoria:false" restringe
 // o denominador aos casos em que a conduta foi de fato realizada (ex.: trombólise),
 // espelhando como o indicador é lido na prática clínica.
+// Indicadores nomeados e parametrizados para espelhar os reports de referência de cada
+// protocolo (mesmos IND.01, 02... título e meta). "obrigatoria:true" usa como denominador
+// todos os casos finalizados do período (falha quem não registrou); "obrigatoria:false"
+// restringe aos casos em que a conduta condicional foi de fato realizada (ex.: trombólise).
 var REL_INDICADORES = {
     sepse: [
-        { chave: 'lactato', tipo: 'tempo', titulo: 'Lactato', meta: 60, obrigatoria: true, sub: 'Coleta do lactato' },
-        { chave: 'hemoculturas', tipo: 'tempo', titulo: 'Hemocultura', meta: 60, obrigatoria: true, sub: 'Coleta de hemocultura' },
-        { chave: 'atb', tipo: 'tempo', titulo: 'Antibiótico', meta: 60, obrigatoria: true, sub: 'Administração do ATB' },
-        { chave: 'reposicao_volemica', tipo: 'binario', titulo: 'Reposição volêmica', sub: 'Casos com reposição volêmica registrada' },
-        { chave: 'reposicao_volemica', tipo: 'tempo', titulo: 'Repos. volêmica', meta: 180, obrigatoria: false, sub: 'Início da reposição volêmica' }
+        { chave: 'lactato', tipo: 'tempo', titulo: 'IND.01 Lactato', meta: 60, obrigatoria: true, sub: 'Coleta do lactato' },
+        { chave: 'hemoculturas', chaveComparar: 'atb', tipo: 'ordem', titulo: 'IND.02 Hemocultura antes do ATB', obrigatoria: true, sub: 'Coleta anterior ao antimicrobiano' },
+        { chave: 'atb', tipo: 'tempo', titulo: 'IND.03 Antibiótico', meta: 60, obrigatoria: true, sub: 'Administração do ATB' },
+        { chave: 'reposicao_volemica', tipo: 'binario', titulo: 'IND.04 Hidratação prescrita', sub: 'Prescrição médica de hidratação' },
+        { chave: 'reposicao_volemica', tipo: 'tempo', titulo: 'IND.05 Hidratação', meta: 60, obrigatoria: true, sub: 'Prescrição → início da infusão' }
     ],
     dor_toracica: [
-        { chave: 'ecg', tipo: 'tempo', titulo: 'ECG', meta: 10, obrigatoria: true, sub: 'Realização do ECG' },
-        { chave: 'aas', tipo: 'tempo', titulo: 'AAS', meta: 10, obrigatoria: true, sub: 'Administração do AAS' },
-        { chave: 'troponina', tipo: 'tempo', titulo: 'Troponina', meta: 30, obrigatoria: true, sub: 'Coleta de troponina' },
-        { chave: 'porta_agulha', tipo: 'tempo', titulo: 'Porta-Agulha', meta: 30, obrigatoria: false, sub: 'Fibrinólise (Alteplase)' },
-        { chave: 'porta_balao', tipo: 'tempo', titulo: 'Porta-Balão', meta: 90, obrigatoria: false, sub: 'Hemodinâmica (angioplastia)' }
+        { chave: 'ecg', tipo: 'tempo', titulo: 'IND.01 ECG', meta: 10, obrigatoria: true, sub: 'Realização do ECG' },
+        { chave: 'avaliacao_ecg', tipo: 'tempo', titulo: 'IND.02 Laudo', meta: 15, obrigatoria: true, sub: 'Interpretação/laudo do ECG' },
+        { chave: 'telecardio', tipo: 'tempo', titulo: 'IND.03 TeleCárdio', meta: 30, obrigatoria: false, sub: 'Resposta do TeleCárdio' },
+        { chave: 'porta_agulha', tipo: 'tempo', titulo: 'IND.04 Porta-Agulha', meta: 30, obrigatoria: false, sub: 'Fibrinólise (Alteplase)' },
+        { chave: 'porta_balao', tipo: 'tempo', titulo: 'IND.05 Porta-Balão', meta: 90, obrigatoria: false, sub: 'Hemodinâmica (angioplastia)' }
     ],
     avc: [
-        { chave: 'tc_cranio', tipo: 'tempo', titulo: 'Porta → TC', meta: 25, obrigatoria: true, sub: 'Realização da TC de crânio' },
-        { chave: 'hd_confirmada', tipo: 'tempo', titulo: 'Porta → HD confirmada', meta: 45, obrigatoria: true, sub: 'Confirmação diagnóstica' },
-        { chave: 'nihss', tipo: 'tempo', titulo: 'NIHSS', meta: 10, obrigatoria: true, sub: 'Aplicação da escala NIHSS' },
-        { chave: 'trombolise', tipo: 'tempo', titulo: 'Porta → Agulha', meta: 60, obrigatoria: false, sub: 'Administração do tPA' }
+        { chave: 'tc_cranio', tipo: 'tempo', titulo: 'IND.01 Porta → TC', meta: 25, obrigatoria: true, sub: 'Realização da TC de crânio' },
+        { chave: 'hd_confirmada', tipo: 'tempo', titulo: 'IND.02 Porta → laudo da TC', meta: 45, obrigatoria: true, sub: 'Confirmação diagnóstica / exclusão de sangramento' },
+        { chave: 'trombolise', tipo: 'tempo', titulo: 'IND.03 Porta → agulha', meta: 60, obrigatoria: false, sub: 'Administração do tPA (trombolisados)' },
+        { chave: 'nihss', tipo: 'tempo', titulo: 'IND.04 NIHSS', meta: 10, obrigatoria: true, sub: 'Aplicação da escala NIHSS' }
     ]
 };
 
@@ -1447,6 +1451,14 @@ function computarIndicador(lista, ind) {
     if (ind.tipo === 'binario') {
         var feitas = lista.filter(function(p) { var e = etapaPorChave(p, ind.chave); return e && e.feita; }).length;
         return { registros: lista.length, dentro: feitas, pct: lista.length ? (feitas / lista.length * 100) : null, media: null };
+    }
+    if (ind.tipo === 'ordem') {
+        var dentroO = lista.filter(function(p) {
+            var e1 = etapaPorChave(p, ind.chave), e2 = etapaPorChave(p, ind.chaveComparar);
+            if (!e1 || !e1.feita || !e2 || !e2.feita) return false;
+            return new Date(e1.horario || e1.feitaEm).getTime() <= new Date(e2.horario || e2.feitaEm).getTime();
+        }).length;
+        return { registros: lista.length, dentro: dentroO, pct: lista.length ? (dentroO / lista.length * 100) : null, media: null };
     }
     var elegiveis = ind.obrigatoria ? lista : lista.filter(function(p) { var e = etapaPorChave(p, ind.chave); return e && e.feita; });
     var minutos = [], dentroCount = 0;
@@ -1508,10 +1520,10 @@ function renderizarPaginaRelatorio() {
     h += '<div class="rel-subbar">Pronto Socorro — Hospital Paulo Sacramento &nbsp;|&nbsp; Período: ' + fmtData(relDe + 'T00:00') + ' a ' + fmtData(relAte + 'T00:00') + ' &nbsp;|&nbsp; ' + lista.length + ' protocolos (' + finalizados + ' finalizados, ' + cancelados + ' cancelados)</div>';
 
     var indicadoresCalc = indicadores.map(function(ind) { return { def: ind, r: computarIndicador(lista, ind) }; });
-    h += '<div class="rel-section-title">Indicadores de Tempo-Resposta — Resultado do Período</div><div class="rel-kpi-row">';
+    h += '<div class="rel-section-title">Indicadores de Adesão ao Protocolo — Resultado do Período</div><div class="rel-kpi-row">';
     indicadoresCalc.forEach(function(ic) {
         var ind = ic.def, r = ic.r;
-        var metaTxt = ind.tipo === 'binario' ? 'registrada' : ('&le; ' + ind.meta + 'min');
+        var metaTxt = metaTextoIndicador(ind);
         var valorTxt = r.pct == null ? 'N/A' : r.pct.toFixed(1).replace('.', ',') + '%';
         var subTxt = r.registros ? ('<b>' + r.dentro + ' de ' + r.registros + '</b> casos' + (r.media != null ? ' · média <b>' + fmtMin(r.media) + '</b>' : '')) : 'sem casos elegíveis';
         h += '<div class="rel-kpi-card"><div class="kpi-title">' + esc(ind.titulo) + '<br>' + metaTxt + '</div>' +
@@ -1526,8 +1538,9 @@ function renderizarPaginaRelatorio() {
     h += '<div class="rel-chart-box"><h3>Distribuição dos Tempos por Indicador</h3><canvas id="relChartDistrib"></canvas></div>';
     h += '</div>';
 
+    h += '<div class="rel-two-col"><div class="rel-col" style="flex:1.55;">';
     h += '<div class="rel-section-title">Evolução Mensal — Tabela</div><div class="rel-table-wrap"><table class="rel-data-table"><tr><th>Mês</th><th>Protocolos</th>';
-    indicadoresCalc.forEach(function(ic) { h += '<th>' + esc(ic.def.titulo) + '<span class="th-sub">' + (ic.def.tipo === 'binario' ? 'registrada' : '≤' + ic.def.meta + 'min') + '</span></th>'; });
+    indicadoresCalc.forEach(function(ic) { h += '<th>' + esc(ic.def.titulo) + '<span class="th-sub">' + metaTextoIndicador(ic.def).replace('&le; ', '≤') + '</span></th>'; });
     h += '</tr>';
     meses.forEach(function(k) {
         var grupo = porMes[k] || [];
@@ -1540,12 +1553,63 @@ function renderizarPaginaRelatorio() {
     });
     h += '<tr class="total-row"><td class="month">Período</td><td>' + lista.length + '</td>';
     indicadoresCalc.forEach(function(ic) { h += '<td>' + (ic.r.registros ? (ic.r.pct.toFixed(1).replace('.', ',') + '% · ' + ic.r.dentro + '/' + ic.r.registros) : '—') + '</td>'; });
-    h += '</tr></table></div>';
+    h += '</tr></table></div></div>';
+
+    h += '<div class="rel-col">';
+    h += '<div class="rel-section-title">Funil de Triagem do Período</div>' + renderizarFunil(tipoInfo, protocolosAbertosNoPeriodo(tipo));
+    h += '<div class="rel-section-title" style="margin-top:14px;">Perfil e Desfecho dos Casos Finalizados</div>' + renderizarPerfil(lista);
+    h += '</div></div>';
 
     h += '<div class="rel-footer">Dados extraídos do sistema de Protocolos Clínicos em ' + fmtDataHora(agoraISO()) + '. Indicadores de tempo contados a partir da abertura do protocolo (tempo-porta). Indicadores não obrigatórios (ex.: trombólise, porta-agulha, porta-balão) consideram apenas os casos em que a conduta foi realizada.</div>';
 
     el.innerHTML = h;
     desenharGraficosRelatorio(indicadoresCalc, lista, meses, porMes);
+}
+
+function metaTextoIndicador(ind) {
+    if (ind.tipo === 'binario') return 'registrada';
+    if (ind.tipo === 'ordem') return 'ordem de coleta';
+    return '&le; ' + ind.meta + 'min';
+}
+
+function protocolosAbertosNoPeriodo(tipo) {
+    return protocolos.filter(function(p) {
+        if (p.tipo !== tipo) return false;
+        var d = (p.criadoEm || '').substring(0, 10);
+        return (!relDe || d >= relDe) && (!relAte || d <= relAte);
+    });
+}
+
+function renderizarFunil(tipoInfo, abertos) {
+    var motivos = tipoInfo.motivosExclusao || [];
+    var h = '<div class="rel-table-wrap"><table class="rel-data-table"><tr><th style="text-align:left;">Etapa</th><th>n</th><th>% do total</th></tr>';
+    h += '<tr><td class="month">Notificações abertas</td><td>' + abertos.length + '</td><td>100%</td></tr>';
+    motivos.forEach(function(m) {
+        var n = abertos.filter(function(p) { return p.status === 'cancelado' && p.canceladoMotivo === m; }).length;
+        var pct = abertos.length ? (n / abertos.length * 100) : 0;
+        h += '<tr><td class="month">Excluídas — ' + esc(m) + '</td><td>' + n + '</td><td>' + pct.toFixed(1).replace('.', ',') + '%</td></tr>';
+    });
+    var fin = abertos.filter(function(p) { return p.status === 'finalizado'; }).length;
+    var pctFin = abertos.length ? (fin / abertos.length * 100) : 0;
+    h += '<tr class="total-row"><td class="month">Finalizadas</td><td>' + fin + '</td><td>' + pctFin.toFixed(1).replace('.', ',') + '%</td></tr>';
+    h += '</table></div>';
+    return h;
+}
+
+function renderizarPerfil(lista) {
+    var finalizados = lista.filter(function(p) { return p.status === 'finalizado'; });
+    if (!finalizados.length) return '<p style="font-size:12px;color:var(--rel-textgrey);margin-top:6px;">Sem casos finalizados no período.</p>';
+    var idades = finalizados.map(function(p) { return parseInt((p.paciente && p.paciente.idade) || 0, 10); }).filter(function(n) { return n > 0; });
+    var idadeMedia = idades.length ? Math.round(idades.reduce(function(a, b) { return a + b; }, 0) / idades.length) : null;
+    var homens = finalizados.filter(function(p) { return p.paciente && p.paciente.sexo === 'M'; }).length;
+    var mulheres = finalizados.filter(function(p) { return p.paciente && p.paciente.sexo === 'F'; }).length;
+    var destinoContagem = {};
+    finalizados.forEach(function(p) { var d = p.desfecho || 'Não informado'; destinoContagem[d] = (destinoContagem[d] || 0) + 1; });
+    var h = '<ul class="rel-compact">';
+    h += '<li>Perfil: ' + finalizados.length + ' casos finalizados' + (idadeMedia != null ? ', idade média ' + idadeMedia + ' anos' : '') + ' (' + homens + ' masculino, ' + mulheres + ' feminino).</li>';
+    h += '<li>Desfecho: ' + Object.keys(destinoContagem).map(function(k) { return '<b>' + destinoContagem[k] + '</b> ' + esc(k); }).join(', ') + '.</li>';
+    h += '</ul>';
+    return h;
 }
 
 function desenharGraficosRelatorio(indicadoresCalc, lista, meses, porMes) {
@@ -1611,7 +1675,7 @@ function exportarExcelRelatorio() {
     var porMes = {}; meses.forEach(function(k) { porMes[k] = []; });
     lista.forEach(function(p) { var k = mesKeyDe(p.criadoEm); if (porMes[k]) porMes[k].push(p); });
 
-    var resumoLinhas = [['Mês', 'Protocolos'].concat(indicadores.map(function(i) { return i.titulo + (i.tipo === 'binario' ? '' : ' (meta ' + i.meta + 'min)'); }))];
+    var resumoLinhas = [['Mês', 'Protocolos'].concat(indicadores.map(function(i) { return i.titulo + (i.tipo === 'tempo' ? ' (meta ' + i.meta + 'min)' : ''); }))];
     meses.forEach(function(k) {
         var grupo = porMes[k] || [];
         var linha = [mesLabelDe(k), grupo.length];
@@ -1622,12 +1686,17 @@ function exportarExcelRelatorio() {
     indicadores.forEach(function(ind) { var r = computarIndicador(lista, ind); linhaTotal.push(r.registros ? Math.round(r.pct * 10) / 10 : null); });
     resumoLinhas.push(linhaTotal);
 
-    var protocolosLinhas = [['Tipo', 'Paciente', 'Prontuário', 'Convênio', 'Abertura', 'Status', 'Desfecho'].concat(indicadores.map(function(i) { return i.titulo + ' (min)'; }))];
+    var protocolosLinhas = [['Tipo', 'Paciente', 'Prontuário', 'Convênio', 'Abertura', 'Status', 'Desfecho'].concat(indicadores.map(function(i) { return i.titulo + (i.tipo === 'tempo' ? ' (min)' : ''); }))];
     lista.forEach(function(p) {
         var linha = [tipoInfo.label, (p.paciente && p.paciente.nome) || '', (p.paciente && p.paciente.prontuario) || '', (p.paciente && p.paciente.convenio) || '', fmtDataHora(p.criadoEm), p.status, p.desfecho || p.canceladoMotivo || ''];
         indicadores.forEach(function(ind) {
             var e = etapaPorChave(p, ind.chave);
             if (ind.tipo === 'binario') { linha.push(e && e.feita ? 'Sim' : 'Não'); return; }
+            if (ind.tipo === 'ordem') {
+                var e2 = etapaPorChave(p, ind.chaveComparar);
+                var ok = e && e.feita && e2 && e2.feita && new Date(e.horario || e.feitaEm).getTime() <= new Date(e2.horario || e2.feitaEm).getTime();
+                linha.push(e && e.feita && e2 && e2.feita ? (ok ? 'Sim' : 'Não') : ''); return;
+            }
             linha.push(e && e.feita ? minutosEntre(p.criadoEm, e.horario || e.feitaEm) : null);
         });
         protocolosLinhas.push(linha);
