@@ -192,19 +192,20 @@ var TIPOS = {
         labelReferencia: 'Horário de início da dor',
         motivosExclusao: ['Diagnóstico não cardiológico confirmado', 'Dor resolvida sem alterações de ECG/marcadores', 'Outro'],
         etapas: [
-            { key: 'eva', label: 'Escala de dor (EVA) registrada', estacao: 'emerg_enf', tipoCampo: 'valor', obrigatoria: true, metaMinutos: 10 },
-            { key: 'atendimento_medico', label: 'Atendimento médico inicial realizado', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 10 },
-            { key: 'ecg', label: 'ECG de 12 derivações realizado', estacao: 'emerg_enf', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 10 },
-            { key: 'avaliacao_ecg', label: 'Avaliação do ECG', estacao: 'emerg_medico', tipoCampo: 'multi', obrigatoria: true, metaMinutos: 15, opcoes: ['ECG normal', 'Supra de ST ou BRE novo/provavelmente novo', 'Infra de ST (>0,5mm)', 'Inversão ou simetria de onda T', 'Onda Q patológica', 'Alterações dinâmicas do ST', 'Arritmias ameaçadoras à vida (FV, TV)'] },
-            { key: 'diagnostico', label: 'Diagnóstico definido (IAM com Supra ST / IAM sem Supra ST / Angina Instável / Outro)', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true },
+            { key: 'queixa', label: 'Queixa do paciente', estacao: 'emerg_enf', tipoCampo: 'valor', obrigatoria: true },
+            { key: 'eva', label: 'Escala de dor (0-10)', estacao: 'emerg_enf', tipoCampo: 'valor', obrigatoria: true, metaMinutos: 10 },
+            { key: 'procedencia', label: 'Procedência do paciente', estacao: 'emerg_enf', tipoCampo: 'select', obrigatoria: true, opcoes: ['Demanda espontânea', 'Outra instituição de saúde'] },
+            { key: 'atendimento_medico', label: 'Atendimento médico', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 10 },
+            { key: 'ecg_solicitado', label: 'ECG solicitado', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true },
+            { key: 'ecg', label: 'ECG realizado', estacao: 'emerg_enf', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 10 },
+            { key: 'avaliacao_ecg', label: 'Avaliação do ECG', estacao: 'emerg_medico', tipoCampo: 'multi', obrigatoria: true, opcoes: ['ECG normal', 'Supra de ST ou BRE novo ou provavelmente novo', 'Inversão ou simetria de onda T', 'Infra de ST (>0,5mm)', 'Arritmias ameaçadoras à vida', 'Alterações dinâmicas do ST', 'Onda Q patológica'] },
+            { key: 'laudo_teleecg', label: 'Laudo do TeleECG', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false, metaMinutos: 15 },
+            { key: 'troponina', label: 'Coleta da primeira troponina', estacao: 'laboratorio', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 30 },
+            { key: 'telecardio_solicitacao', label: 'Solicitação do TeleCardio', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false },
+            { key: 'telecardio_resposta', label: 'Resposta (conduta) do TeleCardio', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false, metaMinutos: 30 },
+            { key: 'diagnostico', label: 'Diagnóstico', estacao: 'emerg_medico', tipoCampo: 'select', obrigatoria: true, opcoes: ['IAM com Supra ST', 'IAM sem Supra ST', 'Angina Instável', 'Outros'], opcaoOutro: 'Outros' },
             { key: 'sinais_alerta', label: 'Sinais de alerta e gravidade', estacao: 'emerg_medico', tipoCampo: 'multi', obrigatoria: false, opcoes: ['PA sistólica <=90 e/ou diastólica <60mmHg', 'Sonolência e/ou confusão mental', 'Má perfusão periférica (sudorese, extremidades frias)', 'FR>24irpm, taquidispneico, sintomas de congestão', 'Dor torácica intensa (EVA 9 ou 10)', 'Arritmia grave (FC<50 ou >150bpm)'] },
-            { key: 'aas', label: 'AAS administrado (se sem contraindicação)', estacao: 'emerg_enf', tipoCampo: 'checkbox', obrigatoria: true, metaMinutos: 10 },
-            { key: 'troponina', label: 'Coleta de marcadores de necrose miocárdica (troponina)', estacao: 'laboratorio', tipoCampo: 'valor', obrigatoria: true, metaMinutos: 30 },
-            { key: 'rx_torax', label: 'RX de tórax realizado', estacao: 'imagem', tipoCampo: 'checkbox', obrigatoria: false, metaMinutos: 30 },
-            { key: 'telecardio', label: 'Conduta do TeleCardio recebida', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false, metaMinutos: 30 },
-            { key: 'porta_agulha', label: 'Fibrinólise — horário de administração de Alteplase (porta-agulha)', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false, metaMinutos: 30 },
-            { key: 'porta_balao', label: 'Hemodinâmica — horário de abertura da artéria (porta-balão)', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false, metaMinutos: 90 },
-            { key: 'destino', label: 'Destino definido', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: true }
+            { key: 'desfecho_dor', label: 'Desfecho', estacao: 'emerg_medico', tipoCampo: 'desfecho_dor', obrigatoria: true, opcoes: ['CATE imediato', 'CATE em 24 horas', 'CATE em 72 horas', 'Trombólise', 'Internação para estratificação de risco não invasiva', 'Alta para seguimento ambulatorial'] }
         ]
     },
     avc: {
@@ -590,11 +591,19 @@ function renderEtapaItem(p, e, idx) {
             h += '<div class="etapa-valor-row"><button class="etapa-btn-mini success" onclick="confirmarEtapaDecisao(\'' + p.id + '\',' + idx + ')">' + escHtml(e.rotuloPositivo || 'Confirmada') + '</button>';
             h += '<button class="etapa-btn-mini danger" onclick="descartarEtapaDecisao(\'' + p.id + '\',' + idx + ')">' + escHtml(e.rotuloNegativo || 'Descartada') + '</button></div>';
         } else if (e.tipoCampo === 'select') {
-            h += '<div class="etapa-valor-row"><select id="select-' + idx + '" onchange="document.getElementById(\'outro-wrap-' + idx + '\').style.display = this.value===\'Outro\'?\'flex\':\'none\';">';
+            var opcaoOutro = e.opcaoOutro || 'Outro';
+            h += '<div class="etapa-valor-row"><select id="select-' + idx + '" onchange="document.getElementById(\'outro-wrap-' + idx + '\').style.display = this.value===' + JSON.stringify(opcaoOutro) + '?\'flex\':\'none\';">';
             h += '<option value="" selected disabled>Selecione...</option>';
             (e.opcoes || []).forEach(function(op) { h += '<option value="' + esc(op) + '">' + escHtml(op) + '</option>'; });
             h += '</select><button class="etapa-btn-mini primary" onclick="salvarEtapaSelect(\'' + p.id + '\',' + idx + ')">Salvar</button></div>';
             h += '<div class="etapa-valor-row" id="outro-wrap-' + idx + '" style="display:none;"><input type="text" id="outro-' + idx + '" placeholder="Especifique"></div>';
+        } else if (e.tipoCampo === 'desfecho_dor') {
+            h += '<div class="etapa-valor-row"><select id="select-' + idx + '" onchange="atualizarCamposDesfechoDor(' + idx + ')">';
+            h += '<option value="" selected disabled>Selecione...</option>';
+            (e.opcoes || []).forEach(function(op) { h += '<option value="' + esc(op) + '">' + escHtml(op) + '</option>'; });
+            h += '</select></div>';
+            h += '<div id="desfecho-extra-' + idx + '"></div>';
+            h += '<div class="etapa-valor-row"><button class="etapa-btn-mini primary" onclick="salvarEtapaDesfechoDor(\'' + p.id + '\',' + idx + ')">Registrar</button></div>';
         } else if (e.tipoCampo === 'select_horario') {
             h += '<div class="etapa-valor-row"><select id="select-' + idx + '">';
             h += '<option value="" selected disabled>Selecione...</option>';
@@ -610,7 +619,14 @@ function renderEtapaItem(p, e, idx) {
             h += '<div class="etapa-valor-row"><button class="etapa-btn-mini primary" onclick="marcarEtapaRapida(\'' + p.id + '\',' + idx + ')">Marcar feito agora</button></div>';
         }
     } else {
-        var infoValor = e.valor && e.horario ? (e.valor + ' — ' + fmtDataHora(e.horario)) : e.valor ? (e.valor + (e.unidade ? ' ' + e.unidade : '')) : (e.horario ? fmtDataHora(e.horario) : 'Concluído');
+        var infoValor;
+        if (e.tipoCampo === 'desfecho_dor' && e.valor === 'CATE imediato') {
+            infoValor = e.valor + ' — Solicitação ' + fmtDataHora(e.cateSolicitacao) + ', Realização ' + fmtDataHora(e.cateRealizacao);
+        } else if (e.tipoCampo === 'desfecho_dor' && e.valor === 'Trombólise') {
+            infoValor = e.valor + ' — Início ' + fmtDataHora(e.tromboliseInicio);
+        } else {
+            infoValor = e.valor && e.horario ? (e.valor + ' — ' + fmtDataHora(e.horario)) : e.valor ? (e.valor + (e.unidade ? ' ' + e.unidade : '')) : (e.horario ? fmtDataHora(e.horario) : 'Concluído');
+        }
         h += '<div class="etapa-feita-info">' + escHtml(infoValor) + ' — registrado por ' + escHtml(e.feitaPor || '--') + ' às ' + fmtDataHora(e.feitaEm) +
             '<span class="etapa-desfazer" onclick="desfazerEtapa(\'' + p.id + '\',' + idx + ')">desfazer</span></div>';
     }
@@ -678,13 +694,50 @@ function descartarEtapaDecisao(protocoloId, idx) {
 function salvarEtapaSelect(protocoloId, idx) {
     var select = g('select-' + idx); var valor = select.value;
     if (!valor) { select.focus(); return; }
-    if (valor === 'Outro') {
+    var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
+    if (valor === (e.opcaoOutro || 'Outro')) {
         var outroInput = g('outro-' + idx); var texto = outroInput.value.trim();
         if (!texto) { outroInput.focus(); return; }
         valor = texto;
     }
-    var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
     atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, feitaEm: agoraISO(), feitaPor: nomeDe(usuarioAtual) }, e.label + ': ' + valor);
+}
+function atualizarCamposDesfechoDor(idx) {
+    var valor = g('select-' + idx).value;
+    var el = g('desfecho-extra-' + idx);
+    var h = '';
+    if (valor === 'CATE imediato') {
+        h += '<div class="etapa-valor-row"><span class="etapa-subcampo-label">Solicitação do CATE:</span><input type="datetime-local" id="cate-sol-' + idx + '" value="' + getLocalISO() + '"></div>';
+        h += '<div class="etapa-valor-row"><span class="etapa-subcampo-label">Realização do CATE:</span><input type="datetime-local" id="cate-real-' + idx + '" value="' + getLocalISO() + '"></div>';
+    } else if (valor === 'Trombólise') {
+        h += '<div class="etapa-valor-row"><span class="etapa-subcampo-label">Início da trombólise:</span><input type="datetime-local" id="trombolise-inicio-' + idx + '" value="' + getLocalISO() + '"></div>';
+    }
+    el.innerHTML = h;
+}
+function salvarEtapaDesfechoDor(protocoloId, idx) {
+    var select = g('select-' + idx); var valor = select.value;
+    if (!valor) { select.focus(); return; }
+    var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
+    var mudancas = { feita: true, valor: valor, feitaEm: agoraISO(), feitaPor: nomeDe(usuarioAtual), cateSolicitacao: null, cateRealizacao: null, tromboliseInicio: null };
+    var textoTimeline = e.label + ': ' + valor;
+    if (valor === 'CATE imediato') {
+        var sol = g('cate-sol-' + idx), real = g('cate-real-' + idx);
+        if (!sol.value) { sol.focus(); return; }
+        if (!real.value) { real.focus(); return; }
+        mudancas.cateSolicitacao = new Date(sol.value).toISOString();
+        mudancas.cateRealizacao = new Date(real.value).toISOString();
+        mudancas.horario = mudancas.cateRealizacao;
+        textoTimeline += ' — solicitado às ' + fmtDataHora(mudancas.cateSolicitacao) + ', realizado às ' + fmtDataHora(mudancas.cateRealizacao);
+    } else if (valor === 'Trombólise') {
+        var ini = g('trombolise-inicio-' + idx);
+        if (!ini.value) { ini.focus(); return; }
+        mudancas.tromboliseInicio = new Date(ini.value).toISOString();
+        mudancas.horario = mudancas.tromboliseInicio;
+        textoTimeline += ' — início às ' + fmtDataHora(mudancas.tromboliseInicio);
+    } else {
+        mudancas.horario = agoraISO();
+    }
+    atualizarEtapa(protocoloId, idx, mudancas, textoTimeline);
 }
 function salvarEtapaSelectHorario(protocoloId, idx) {
     var select = g('select-' + idx); var valor = select.value;
@@ -1160,6 +1213,7 @@ function desenharSepseP2(doc, w, h, p) {
 // ===== PÁGINAS — DOR TORÁCICA =====
 function desenharDorP1(doc, w, h, p, logo) {
     var pac = p.paciente || {};
+    var e = function(k) { return etapaPorChave(p, k); };
     if (logo) { try { doc.addImage(logo, 'PNG', _fx(w, 0.06), _fy(h, 0.018), _fx(w, 0.20), _fy(h, 0.045)); } catch (e) {} }
     txt(doc, w, h, 0.5, 0.070, 'Ficha de Monitoramento de Dor Torácica', { tam: 15, negrito: true, align: 'center' });
 
@@ -1176,62 +1230,80 @@ function desenharDorP1(doc, w, h, p, logo) {
     txt(doc, w, h, 0.660, 0.225, (p.criadoPor ? nomeDe(p.criadoPor) : ''), { tam: 7.6, cor: COR_TINTA });
 
     ret(doc, w, h, 0.06, 0.258, 0.94, 0.322, { esp: 1 });
-    campoLinha(doc, w, h, 0.075, 0.278, 0.860, 'Queixa:', '', { tam: 7.6 });
-    var eva = etapaPorChave(p, 'eva');
+    campoLinha(doc, w, h, 0.075, 0.278, 0.860, 'Queixa:', (function() { var q = e('queixa'); return q && q.feita ? q.valor : ''; })(), { tam: 7.6 });
+    var eva = e('eva');
     campoLinha(doc, w, h, 0.075, 0.305, 0.400, 'Horário de INÍCIO da DOR:', fmtHoraCurta(p.horaReferencia), { tam: 7.6 });
-    campoLinha(doc, w, h, 0.580, 0.305, 0.340, 'Escala de dor (EVA):', eva && eva.feita ? eva.valor : '', { tam: 7.6 });
+    campoLinha(doc, w, h, 0.580, 0.305, 0.340, 'Escala de dor (0-10):', eva && eva.feita ? eva.valor : '', { tam: 7.6 });
 
     ret(doc, w, h, 0.06, 0.330, 0.94, 0.400, { esp: 1 });
-    campoLinha(doc, w, h, 0.075, 0.350, 0.860, 'Procedência do paciente:', '', { tam: 7.6 });
-    campoLinha(doc, w, h, 0.075, 0.378, 0.260, 'Horário atendimento médico:', textoEtapaHora(etapaPorChave(p, 'atendimento_medico')), { tam: 7.2 });
-    campoLinha(doc, w, h, 0.400, 0.378, 0.260, 'Horário solicitação ECG:', '', { tam: 7.2 });
-    campoLinha(doc, w, h, 0.700, 0.378, 0.240, 'Horário realização ECG:', textoEtapaHora(etapaPorChave(p, 'ecg')), { tam: 7.2 });
+    campoLinha(doc, w, h, 0.075, 0.350, 0.860, 'Procedência do paciente:', (function() { var pr = e('procedencia'); return pr && pr.feita ? pr.valor : ''; })(), { tam: 7.6 });
+    campoLinha(doc, w, h, 0.075, 0.378, 0.260, 'Horário atendimento médico:', textoEtapaHora(e('atendimento_medico')), { tam: 7.2 });
+    campoLinha(doc, w, h, 0.400, 0.378, 0.260, 'Horário solicitação ECG:', textoEtapaHora(e('ecg_solicitado')), { tam: 7.2 });
+    campoLinha(doc, w, h, 0.700, 0.378, 0.240, 'Horário realização ECG:', textoEtapaHora(e('ecg')), { tam: 7.2 });
 
-    var avEcg = etapaPorChave(p, 'avaliacao_ecg');
+    var avEcg = e('avaliacao_ecg');
     var mEcg = textoMarcado(null, avEcg && avEcg.valor);
-    var ecgOp = { normal: 'ECG normal', supra: 'Supra de ST ou BRE novo/provavelmente novo', infra: 'Infra de ST (>0,5mm)', invT: 'Inversão ou simetria de onda T', ondaQ: 'Onda Q patológica', altST: 'Alterações dinâmicas do ST', arrit: 'Arritmias ameaçadoras à vida (FV, TV)' };
-    tabelaCriterios(doc, w, h, 0.06, 0.408, 0.94, 0.545, 'Avaliação do ECG', [
-        { itens: [{ label: 'ECG normal', marcado: mEcg(ecgOp.normal) }, { label: 'Supra de ST ou BRE novo/provavelmente novo', marcado: mEcg(ecgOp.supra) }, { label: 'Inversão ou simetria de onda T', marcado: mEcg(ecgOp.invT) }, { label: 'Infra de ST (>0,5mm)', marcado: mEcg(ecgOp.infra) }] },
-        { itens: [{ label: 'Arritmias ameaçadoras à vida (FV, TV)', marcado: mEcg(ecgOp.arrit) }, { label: 'Alterações dinâmicas do ST', marcado: mEcg(ecgOp.altST) }, { label: 'Onda Q patológica', marcado: mEcg(ecgOp.ondaQ) }] }
+    var ecgOp = { normal: 'ECG normal', supra: 'Supra de ST ou BRE novo ou provavelmente novo', invT: 'Inversão ou simetria de onda T', infra: 'Infra de ST (>0,5mm)', arrit: 'Arritmias ameaçadoras à vida', altST: 'Alterações dinâmicas do ST', ondaQ: 'Onda Q patológica' };
+    tabelaCriterios(doc, w, h, 0.06, 0.408, 0.94, 0.530, 'Avaliação do ECG', [
+        { itens: [{ label: 'ECG normal', marcado: mEcg(ecgOp.normal) }, { label: 'Supra de ST ou BRE novo ou provavelmente novo', marcado: mEcg(ecgOp.supra) }, { label: 'Inversão ou simetria de onda T', marcado: mEcg(ecgOp.invT) }, { label: 'Infra de ST (>0,5mm)', marcado: mEcg(ecgOp.infra) }] },
+        { itens: [{ label: 'Arritmias ameaçadoras à vida', marcado: mEcg(ecgOp.arrit) }, { label: 'Alterações dinâmicas do ST', marcado: mEcg(ecgOp.altST) }, { label: 'Onda Q patológica', marcado: mEcg(ecgOp.ondaQ) }] }
     ], null);
 
-    ret(doc, w, h, 0.06, 0.553, 0.94, 0.610, { esp: 1 });
-    campoLinha(doc, w, h, 0.075, 0.573, 0.300, 'Horário do Laudo TeleECG:', '', { tam: 7.2 });
-    campoLinha(doc, w, h, 0.390, 0.573, 0.280, 'Solicitação TeleCardio:', '', { tam: 7.2 });
-    campoLinha(doc, w, h, 0.685, 0.573, 0.245, 'Resposta TeleCardio:', textoEtapaHora(etapaPorChave(p, 'telecardio')), { tam: 7 });
+    ret(doc, w, h, 0.06, 0.538, 0.94, 0.595, { esp: 1 });
+    campoLinha(doc, w, h, 0.075, 0.558, 0.300, 'Horário do Laudo TeleECG:', textoEtapaHora(e('laudo_teleecg')), { tam: 7.2 });
+    campoLinha(doc, w, h, 0.390, 0.558, 0.280, 'Solicitação TeleCardio:', textoEtapaHora(e('telecardio_solicitacao')), { tam: 7.2 });
+    campoLinha(doc, w, h, 0.685, 0.558, 0.245, 'Resposta TeleCardio:', textoEtapaHora(e('telecardio_resposta')), { tam: 7 });
 
-    var diag = etapaPorChave(p, 'diagnostico');
+    var diag = e('diagnostico');
     var vdiag = (diag && diag.feita ? diag.valor : '').toLowerCase();
-    ret(doc, w, h, 0.06, 0.618, 0.94, 0.670, { esp: 1 });
-    txt(doc, w, h, 0.075, 0.635, 'Diagnóstico:', { tam: 8, negrito: true });
+    ret(doc, w, h, 0.06, 0.603, 0.94, 0.655, { esp: 1 });
+    txt(doc, w, h, 0.075, 0.620, 'Diagnóstico:', { tam: 8, negrito: true });
     var diagChecks = [{ x: 0.185, label: 'IAM com Supra ST', hit: vdiag.indexOf('supra') !== -1 && vdiag.indexOf('sem') === -1 },
         { x: 0.430, label: 'IAM sem Supra ST', hit: vdiag.indexOf('sem supra') !== -1 },
         { x: 0.680, label: 'Angina Instável', hit: vdiag.indexOf('angina') !== -1 }];
     diagChecks.forEach(function(c) {
-        ret(doc, w, h, c.x, 0.628, c.x + 0.016, 0.628 + 0.016 * (w / h), { esp: 0.8 });
-        if (c.hit) txt(doc, w, h, c.x + 0.002, 0.628 + 0.016 * (w / h) * 0.82, 'X', { tam: 7.5, negrito: true, cor: COR_TINTA });
-        txt(doc, w, h, c.x + 0.022, 0.640, c.label, { tam: 7.4 });
+        ret(doc, w, h, c.x, 0.613, c.x + 0.016, 0.613 + 0.016 * (w / h), { esp: 0.8 });
+        if (c.hit) txt(doc, w, h, c.x + 0.002, 0.613 + 0.016 * (w / h) * 0.82, 'X', { tam: 7.5, negrito: true, cor: COR_TINTA });
+        txt(doc, w, h, c.x + 0.022, 0.625, c.label, { tam: 7.4 });
     });
     var diagOutros = diag && diag.feita && !diagChecks.some(function(c) { return c.hit; });
-    ret(doc, w, h, 0.185, 0.652, 0.201, 0.652 + 0.016 * (w / h), { esp: 0.8 });
-    if (diagOutros) txt(doc, w, h, 0.187, 0.652 + 0.016 * (w / h) * 0.82, 'X', { tam: 7.5, negrito: true, cor: COR_TINTA });
-    campoLinha(doc, w, h, 0.222, 0.664, 0.500, 'Outros:', diagOutros ? diag.valor : '', { tam: 7.4 });
+    ret(doc, w, h, 0.185, 0.637, 0.201, 0.637 + 0.016 * (w / h), { esp: 0.8 });
+    if (diagOutros) txt(doc, w, h, 0.187, 0.637 + 0.016 * (w / h) * 0.82, 'X', { tam: 7.5, negrito: true, cor: COR_TINTA });
+    campoLinha(doc, w, h, 0.222, 0.649, 0.500, 'Outros:', diagOutros ? diag.valor : '', { tam: 7.4 });
 
-    var alerta = etapaPorChave(p, 'sinais_alerta'), alertaOp = opcoesDaEtapa('dor_toracica', 'sinais_alerta');
+    var alerta = e('sinais_alerta'), alertaOp = opcoesDaEtapa('dor_toracica', 'sinais_alerta');
     var mAlerta = textoMarcado(null, alerta && alerta.valor);
-    tabelaCriterios(doc, w, h, 0.06, 0.678, 0.94, 0.790, 'Sinais de Alerta e Gravidade', [
+    tabelaCriterios(doc, w, h, 0.06, 0.663, 0.94, 0.760, 'Sinais de Alerta e Gravidade', [
         { itens: alertaOp.map(function(op) { return { label: op, marcado: mAlerta(op) }; }) }
     ], null);
 
-    ret(doc, w, h, 0.06, 0.798, 0.94, 0.900, { esp: 1 });
-    txt(doc, w, h, 0.5, 0.813, 'Desfecho', { tam: 9, negrito: true, align: 'center' });
-    txt(doc, w, h, 0.075, 0.828, 'Hemodinâmica', { tam: 8, negrito: true });
-    campoLinha(doc, w, h, 0.075, 0.850, 0.400, 'Horário abertura da artéria (porta-balão):', textoEtapaHora(etapaPorChave(p, 'porta_balao')), { tam: 7 });
-    txt(doc, w, h, 0.560, 0.828, 'Fibrinólise', { tam: 8, negrito: true });
-    campoLinha(doc, w, h, 0.560, 0.850, 0.370, 'Horário administração Alteplase:', textoEtapaHora(etapaPorChave(p, 'porta_agulha')), { tam: 7 });
+    var desf = e('desfecho_dor');
+    var vdesf = desf && desf.feita ? desf.valor : '';
+    ret(doc, w, h, 0.06, 0.768, 0.94, 0.945, { esp: 1 });
+    txt(doc, w, h, 0.075, 0.783, 'Desfecho:', { tam: 8.5, negrito: true });
+    function checkDesfecho(label, x, y) {
+        var hit = vdesf === label;
+        ret(doc, w, h, x, y, x + 0.014, y + 0.014 * (w / h), { esp: 0.8 });
+        if (hit) txt(doc, w, h, x + 0.002, y + 0.014 * (w / h) * 0.82, 'X', { tam: 7, negrito: true, cor: COR_TINTA });
+        txt(doc, w, h, x + 0.020, y + 0.010, label, { tam: 6.8 });
+    }
+    checkDesfecho('CATE imediato', 0.075, 0.800);
+    checkDesfecho('CATE em 24 horas', 0.075, 0.822);
+    checkDesfecho('CATE em 72 horas', 0.075, 0.844);
+    checkDesfecho('Trombólise', 0.500, 0.800);
+    checkDesfecho('Internação para estratificação de risco não invasiva', 0.500, 0.822);
+    checkDesfecho('Alta para seguimento ambulatorial', 0.500, 0.844);
+    if (vdesf === 'CATE imediato') {
+        campoLinha(doc, w, h, 0.075, 0.876, 0.400, 'Solicitação do CATE:', fmtDataHora(desf.cateSolicitacao), { tam: 7.2 });
+        campoLinha(doc, w, h, 0.500, 0.876, 0.400, 'Realização do CATE:', fmtDataHora(desf.cateRealizacao), { tam: 7.2 });
+    } else if (vdesf === 'Trombólise') {
+        campoLinha(doc, w, h, 0.075, 0.876, 0.400, 'Início da trombólise:', fmtDataHora(desf.tromboliseInicio), { tam: 7.2 });
+    }
+    txt(doc, w, h, 0.075, 0.912, 'Registrado por: ' + (desf && desf.feita ? desf.feitaPor : '____________________'), { tam: 6.8, cor: (desf && desf.feita) ? COR_TINTA : [0, 0, 0] });
+    txt(doc, w, h, 0.075, 0.930, 'Carimbo Médico: ____________________', { tam: 6.8 });
 
-    txt(doc, w, h, 0.06, 0.930, 'Profissionais médicos: ________________________', { tam: 7.6 });
-    txt(doc, w, h, 0.06, 0.955, 'Profissional Enfermeiro: ________________________', { tam: 7.6 });
+    txt(doc, w, h, 0.06, 0.965, 'Profissionais médicos: ________________________', { tam: 7.4 });
+    txt(doc, w, h, 0.50, 0.965, 'Profissional Enfermeiro: ________________________', { tam: 7.4 });
 }
 function desenharDorP2(doc, w, h, p, logo) {
     if (logo) { try { doc.addImage(logo, 'PNG', _fx(w, 0.38), _fy(h, 0.06), _fx(w, 0.24), _fy(h, 0.052)); } catch (e) {} }
@@ -1248,7 +1320,7 @@ function desenharDorP2(doc, w, h, p, logo) {
     campoLinha(doc, w, h, 0.560, 0.470, 0.360, 'Responsável:', trop && trop.feita ? trop.feitaPor : '', { tam: 8.2 });
     campoLinha(doc, w, h, 0.135, 0.505, 0.330, 'Horário Recebimento no Laboratório:', '', { tam: 8.2 });
     campoLinha(doc, w, h, 0.560, 0.505, 0.360, 'Responsável:', '', { tam: 8.2 });
-    campoLinha(doc, w, h, 0.135, 0.540, 0.330, 'Horário de Liberação do Resultado:', trop && trop.feita ? trop.valor + ' (troponina)' : '', { tam: 8.2 });
+    campoLinha(doc, w, h, 0.135, 0.540, 0.330, 'Horário de Liberação do Resultado:', '', { tam: 8.2 });
     campoLinha(doc, w, h, 0.560, 0.540, 0.360, 'Responsável:', '', { tam: 8.2 });
 
     ret(doc, w, h, 0.12, 0.615, 0.88, 0.700, { esp: 1 });
@@ -1631,10 +1703,10 @@ var REL_INDICADORES = {
         { tipo: 'cancelamento', titulo: 'Protocolos encerrados por não haver disfunção orgânica', motivo: 'Sem disfunção orgânica após o resultado do pacote sepse', neutro: true }
     ],
     dor_toracica: [
-        { chave: 'ecg', tipo: 'tempo', titulo: 'ECG realizado e interpretado pelo médico', meta: 10, obrigatoria: true },
-        { chave: 'avaliacao_ecg', tipo: 'tempo', titulo: 'Laudo do ECG', meta: 15, obrigatoria: true },
-        { chave: 'telecardio', tipo: 'tempo', titulo: 'Resposta da TeleCárdio', meta: 30, obrigatoria: false },
-        { chave: 'porta_balao', tipo: 'tempo', titulo: 'Porta-Balão', meta: 90, obrigatoria: false }
+        { chave: 'ecg', tipo: 'tempo', titulo: 'ECG realizado', meta: 10, obrigatoria: true },
+        { chave: 'laudo_teleecg', tipo: 'tempo', titulo: 'Laudo do TeleECG', meta: 15, obrigatoria: false },
+        { chave: 'telecardio_resposta', tipo: 'tempo', titulo: 'Resposta da TeleCárdio', meta: 30, obrigatoria: false },
+        { chave: 'desfecho_dor', tipo: 'tempo', titulo: 'Porta-CATE (CATE imediato)', meta: 90, obrigatoria: false, campoHorario: 'cateRealizacao', filtroValor: 'CATE imediato' }
     ],
     avc: [
         { chave: 'tc_cranio', tipo: 'tempo', titulo: 'Porta → TC', meta: 25, obrigatoria: true },
@@ -1685,12 +1757,14 @@ function computarIndicador(lista, ind) {
         var mediaJ = minutosJ.length ? Math.round(minutosJ.reduce(function(a, b) { return a + b; }, 0) / minutosJ.length) : null;
         return { registros: elegiveisJ.length, dentro: dentroJ, pct: elegiveisJ.length ? (dentroJ / elegiveisJ.length * 100) : null, media: mediaJ };
     }
-    var elegiveis = ind.obrigatoria ? lista : lista.filter(function(p) { var e = etapaPorChave(p, ind.chave); return e && e.feita; });
+    var casaFiltro = function(e) { return e && e.feita && (!ind.filtroValor || e.valor === ind.filtroValor); };
+    var elegiveis = ind.obrigatoria ? lista : lista.filter(function(p) { return casaFiltro(etapaPorChave(p, ind.chave)); });
     var minutos = [], dentroCount = 0;
     elegiveis.forEach(function(p) {
         var e = etapaPorChave(p, ind.chave);
-        if (e && e.feita) {
-            var min = minutosEntre(p.criadoEm, e.horario || e.feitaEm);
+        if (casaFiltro(e)) {
+            var tempoRef = ind.campoHorario ? e[ind.campoHorario] : (e.horario || e.feitaEm);
+            var min = minutosEntre(p.criadoEm, tempoRef);
             minutos.push(min);
             if (min <= ind.meta) dentroCount++;
         }
@@ -1809,7 +1883,9 @@ function exportarExcelRelatorio() {
             if (ind.tipo === 'cancelamento') {
                 linha.push(p.status === 'cancelado' && p.canceladoMotivo === ind.motivo ? 'Sim' : 'Não'); return;
             }
-            linha.push(e && e.feita ? minutosEntre(p.criadoEm, e.horario || e.feitaEm) : null);
+            if (!e || !e.feita || (ind.filtroValor && e.valor !== ind.filtroValor)) { linha.push(null); return; }
+            var tempoRefExcel = ind.campoHorario ? e[ind.campoHorario] : (e.horario || e.feitaEm);
+            linha.push(minutosEntre(p.criadoEm, tempoRefExcel));
         });
         protocolosLinhas.push(linha);
     });
