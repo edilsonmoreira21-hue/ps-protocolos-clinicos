@@ -11,6 +11,9 @@ if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
 var auth = firebase.auth();
 var db = firebase.firestore();
 
+// Identifica esta aba/terminal (várias estações podem compartilhar o mesmo login) para não notificar quem acabou de abrir o protocolo, mas notificar todas as outras abas.
+var SESSAO_ID = 's_' + Math.random().toString(36).slice(2) + '_' + Date.now();
+
 // ===== HELPERS GERAIS =====
 function g(id) { return document.getElementById(id); }
 function esc(s) { return (s || '').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
@@ -45,8 +48,7 @@ function classeTempo(decorridoMin, metaMin) {
 
 // ===== ESTAÇÕES DE TRABALHO (por computador/terminal, salvo em localStorage) =====
 var ESTACOES = [
-    { val: 'porta', txt: 'Médico da Porta' },
-    { val: 'emerg_medico', txt: 'Emergência · Médico' },
+    { val: 'emerg_medico', txt: 'Médico' },
     { val: 'emerg_enf', txt: 'Emergência · Enfermagem' },
     { val: 'laboratorio', txt: 'Laboratório' },
     { val: 'imagem', txt: 'Imagem (TC/RX)' }
@@ -118,8 +120,8 @@ var TIPOS = {
         labelReferencia: 'Horário de identificação dos critérios de alerta (SIRS/disfunção orgânica)',
         motivosExclusao: ['Sem suspeita ou confirmação de infecção após avaliação médica', 'Sem disfunção orgânica após o resultado do pacote sepse', 'Diagnóstico alternativo confirmado', 'Outro'],
         etapas: [
-            { key: 'criterios_sirs', label: 'Critérios de alerta SIRS identificados', estacao: 'porta', tipoCampo: 'multi', obrigatoria: true, opcoes: ['T.ax. > 37,8°C', 'T.ax. < 36,0°C', 'FC > 90 bpm', 'FR > 20 rpm', 'Leucocitose > 12.000/mm³', 'Leucopenia < 4.000/mm³', '> 10% de células jovens (bastões)'] },
-            { key: 'criterios_disfuncao', label: 'Critérios de disfunção orgânica identificados', estacao: 'porta', tipoCampo: 'multi', obrigatoria: true, opcoes: ['Hipotensão (PAS<90, PAM<65 ou queda de PA>40mmHg)', 'Oligúria (<=0,5mL/kg/h) ou creatinina >2mg/dL', 'PaO2/FiO2 <300 ou necessidade de O2 para SpO2>90%', 'Plaquetas <100.000/mm³ ou queda de 50% em 3 dias', 'Acidose metabólica inexplicável (BE<=5,0, lactato elevado)', 'Rebaixamento do nível de consciência, agitação, delirium', 'Aumento significativo de bilirrubinas (>2x o valor de referência)'] },
+            { key: 'criterios_sirs', label: 'Critérios de alerta SIRS identificados', estacao: 'emerg_medico', tipoCampo: 'multi', obrigatoria: true, opcoes: ['T.ax. > 37,8°C', 'T.ax. < 36,0°C', 'FC > 90 bpm', 'FR > 20 rpm', 'Leucocitose > 12.000/mm³', 'Leucopenia < 4.000/mm³', '> 10% de células jovens (bastões)'] },
+            { key: 'criterios_disfuncao', label: 'Critérios de disfunção orgânica identificados', estacao: 'emerg_medico', tipoCampo: 'multi', obrigatoria: true, opcoes: ['Hipotensão (PAS<90, PAM<65 ou queda de PA>40mmHg)', 'Oligúria (<=0,5mL/kg/h) ou creatinina >2mg/dL', 'PaO2/FiO2 <300 ou necessidade de O2 para SpO2>90%', 'Plaquetas <100.000/mm³ ou queda de 50% em 3 dias', 'Acidose metabólica inexplicável (BE<=5,0, lactato elevado)', 'Rebaixamento do nível de consciência, agitação, delirium', 'Aumento significativo de bilirrubinas (>2x o valor de referência)'] },
             { key: 'avaliacao_medica', label: 'Avaliação médica realizada, protocolo comunicado ao médico', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true },
             { key: 'suspeita_infeccao', label: 'Suspeita ou confirmação de infecção presente', estacao: 'emerg_medico', tipoCampo: 'decisao', obrigatoria: true, motivoDescarte: 'Sem suspeita ou confirmação de infecção após avaliação médica' },
             { key: 'foco_infeccioso', label: 'Foco infeccioso presumido', estacao: 'emerg_medico', tipoCampo: 'select', obrigatoria: true, opcoes: ['Pulmonar', 'Urinário', 'Abdominal', 'Cutâneo', 'Neurológico', 'Outro'] },
@@ -131,7 +133,7 @@ var TIPOS = {
             { key: 'reposicao_volemica', label: 'Reposição volêmica 30mL/kg de cristaloides (peso / volume / solução)', estacao: 'emerg_enf', tipoCampo: 'valor', obrigatoria: false, metaMinutos: 180 },
             { key: 'segundo_lactato', label: 'Segunda coleta de lactato (pós-ressuscitação volêmica)', estacao: 'laboratorio', tipoCampo: 'valor', unidade: 'mg/dL', obrigatoria: false },
             { key: 'vasopressor', label: 'Noradrenalina iniciada (se PAM <65mmHg após volume) e acesso central providenciado', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: false },
-            { key: 'destino', label: 'Destino definido (UTI / Internação) e hospital de destino', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true }
+            { key: 'destino', label: 'Destino definido', estacao: 'emerg_medico', tipoCampo: 'select_horario', obrigatoria: true, opcoes: ['UTI', 'Internação'] }
         ]
     },
     dor_toracica: {
@@ -159,7 +161,7 @@ var TIPOS = {
         labelReferencia: 'Hora do último normal (confirmar tempo dos sintomas)',
         motivosExclusao: ['Hipótese diagnóstica de AVC não confirmada — investigar outras patologias', 'TC com sangue — seguir Protocolo de AVC Hemorrágico', 'Outro'],
         etapas: [
-            { key: 'sinais_avc', label: 'Sinais de AVC identificados', estacao: 'porta', tipoCampo: 'multi', obrigatoria: true, opcoes: ['Perda de força/sensibilidade', 'Dificuldade de fala/compreensão', 'Desequilíbrio/incoordenação motora', 'Dificuldade visual', 'Confusão mental', 'Cefaleia intensa'] },
+            { key: 'sinais_avc', label: 'Sinais de AVC identificados', estacao: 'emerg_medico', tipoCampo: 'multi', obrigatoria: true, opcoes: ['Perda de força/sensibilidade', 'Dificuldade de fala/compreensão', 'Desequilíbrio/incoordenação motora', 'Dificuldade visual', 'Confusão mental', 'Cefaleia intensa'] },
             { key: 'enfermagem_inicial', label: 'Cuidados iniciais de enfermagem (cabeceira 0°, sinais vitais, dextro, acesso venoso periférico)', estacao: 'emerg_enf', tipoCampo: 'checkbox', obrigatoria: true },
             { key: 'avaliacao_medica', label: 'Avaliação médica (confirmar tempo dos sintomas, solicitar exames, aplicar NIHSS)', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 10 },
             { key: 'nihss', label: 'NIHSS registrado', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true, metaMinutos: 10 },
@@ -199,7 +201,7 @@ function iniciarBancoDeDados() {
                 snapshot.docChanges().forEach(function(change) {
                     if (change.type === 'added') {
                         var novo = Object.assign({ id: change.doc.id }, change.doc.data());
-                        if (novo.criadoPor && usuarioAtual && novo.criadoPor.uid === usuarioAtual.uid) return;
+                        if (novo.criadoPor && novo.criadoPor.sessaoId === SESSAO_ID) return;
                         notificarNovoProtocolo(novo);
                     }
                 });
@@ -422,7 +424,7 @@ function salvarNovoProtocolo() {
         status: 'ativo',
         horaReferencia: g('np-referencia').value ? new Date(g('np-referencia').value).toISOString() : agora,
         criadoEm: agora,
-        criadoPor: { uid: usuarioAtual.uid, email: usuarioAtual.email, estacao: getEstacaoAtual() },
+        criadoPor: { uid: usuarioAtual.uid, email: usuarioAtual.email, estacao: getEstacaoAtual(), sessaoId: SESSAO_ID },
         etapas: etapas,
         timeline: [{ ts: agora, autor: usuarioAtual.email, estacao: getEstacaoAtual(), texto: 'Protocolo de ' + tipoInfo.label + ' aberto.' }],
         finalizadoEm: null, finalizadoPor: null, desfecho: null, canceladoMotivo: null, pdfGeradoEm: null
@@ -529,11 +531,18 @@ function renderEtapaItem(p, e, idx) {
             (e.opcoes || []).forEach(function(op) { h += '<option value="' + esc(op) + '">' + escHtml(op) + '</option>'; });
             h += '</select><button class="etapa-btn-mini primary" onclick="salvarEtapaSelect(\'' + p.id + '\',' + idx + ')">Salvar</button></div>';
             h += '<div class="etapa-valor-row" id="outro-wrap-' + idx + '" style="display:none;"><input type="text" id="outro-' + idx + '" placeholder="Especifique"></div>';
+        } else if (e.tipoCampo === 'select_horario') {
+            h += '<div class="etapa-valor-row"><select id="select-' + idx + '">';
+            h += '<option value="" selected disabled>Selecione...</option>';
+            (e.opcoes || []).forEach(function(op) { h += '<option value="' + esc(op) + '">' + escHtml(op) + '</option>'; });
+            h += '</select></div>';
+            h += '<div class="etapa-valor-row"><input type="datetime-local" id="horario-' + idx + '" value="' + getLocalISO() + '">';
+            h += '<button class="etapa-btn-mini primary" onclick="salvarEtapaSelectHorario(\'' + p.id + '\',' + idx + ')">Registrar</button></div>';
         } else {
             h += '<div class="etapa-valor-row"><button class="etapa-btn-mini primary" onclick="marcarEtapaRapida(\'' + p.id + '\',' + idx + ')">Marcar feito agora</button></div>';
         }
     } else {
-        var infoValor = e.valor ? (e.valor + (e.unidade ? ' ' + e.unidade : '')) : (e.horario ? fmtDataHora(e.horario) : 'Concluído');
+        var infoValor = e.valor && e.horario ? (e.valor + ' — ' + fmtDataHora(e.horario)) : e.valor ? (e.valor + (e.unidade ? ' ' + e.unidade : '')) : (e.horario ? fmtDataHora(e.horario) : 'Concluído');
         h += '<div class="etapa-feita-info">' + escHtml(infoValor) + ' — registrado por ' + escHtml(e.feitaPor || '--') + ' às ' + fmtDataHora(e.feitaEm) +
             '<span class="etapa-desfazer" onclick="desfazerEtapa(\'' + p.id + '\',' + idx + ')">desfazer</span></div>';
     }
@@ -608,6 +617,14 @@ function salvarEtapaSelect(protocoloId, idx) {
     }
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
     atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, feitaEm: agoraISO(), feitaPor: usuarioAtual.email }, e.label + ': ' + valor);
+}
+function salvarEtapaSelectHorario(protocoloId, idx) {
+    var select = g('select-' + idx); var valor = select.value;
+    if (!valor) { select.focus(); return; }
+    var input = g('horario-' + idx); if (!input.value) { input.focus(); return; }
+    var horarioISO = new Date(input.value).toISOString();
+    var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
+    atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, horario: horarioISO, feitaEm: agoraISO(), feitaPor: usuarioAtual.email }, e.label + ': ' + valor + ' registrado às ' + fmtDataHora(horarioISO));
 }
 function desfazerEtapa(protocoloId, idx) {
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
