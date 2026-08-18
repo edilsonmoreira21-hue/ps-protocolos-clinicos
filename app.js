@@ -127,7 +127,7 @@ var TIPOS = {
             { key: 'foco_infeccioso', label: 'Foco infeccioso definido (pulmonar / urinário / abdominal / cutâneo / neurológico / outro)', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true },
             { key: 'atb', label: 'Antibioticoterapia administrada (pacote sepse 1ª hora)', estacao: 'emerg_enf', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 60 },
             { key: 'disfuncao_pos_pacote', label: 'Disfunção orgânica reavaliada após o pacote sepse', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: true },
-            { key: 'reposicao_volemica', label: 'Reposição volêmica 30mL/kg de cristaloides (peso / volume / solução)', estacao: 'emerg_enf', tipoCampo: 'valor', obrigatoria: false },
+            { key: 'reposicao_volemica', label: 'Reposição volêmica 30mL/kg de cristaloides (peso / volume / solução)', estacao: 'emerg_enf', tipoCampo: 'valor', obrigatoria: false, metaMinutos: 180 },
             { key: 'segundo_lactato', label: 'Segunda coleta de lactato (pós-ressuscitação volêmica)', estacao: 'laboratorio', tipoCampo: 'valor', unidade: 'mg/dL', obrigatoria: false },
             { key: 'vasopressor', label: 'Noradrenalina iniciada (se PAM <65mmHg após volume) e acesso central providenciado', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: false },
             { key: 'destino', label: 'Destino definido (UTI / Internação) e hospital de destino', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true }
@@ -1386,95 +1386,257 @@ function salvarPDF(doc, nomeArquivo) {
     }).catch(function(err) { console.error('Erro ao salvar na pasta configurada, baixando normalmente:', err); doc.save(nomeArquivo); });
 }
 
-// ===== RELATÓRIOS =====
-function renderRelatorios() {
-    var wrap = g('view-relatorios');
-    var hoje = getLocalISO().substring(0, 10);
-    var mesPassado = getLocalISO(new Date(Date.now() - 30 * 86400000)).substring(0, 10);
-    var h = '<div class="rel-filters">';
-    h += '<div class="rel-filter-field"><label>De</label><input type="date" id="rel-de" value="' + mesPassado + '"></div>';
-    h += '<div class="rel-filter-field"><label>Até</label><input type="date" id="rel-ate" value="' + hoje + '"></div>';
-    h += '<div class="rel-filter-field"><label>Tipo</label><select id="rel-tipo"><option value="all">Todos</option><option value="sepse">Sepse</option><option value="dor_toracica">Dor Torácica</option><option value="avc">AVC</option></select></div>';
-    h += '<button class="btn-padrao btn-primary" onclick="aplicarFiltroRelatorio()">Filtrar</button>';
-    h += '<button class="btn-padrao" onclick="exportarCSVRelatorio()">Exportar CSV</button>';
-    h += '<button class="btn-padrao" onclick="window.print()">Imprimir</button>';
-    h += '</div><div id="rel-resultado"></div>';
-    wrap.innerHTML = h;
-    aplicarFiltroRelatorio();
-}
+// ===== RELATÓRIOS — DASHBOARD =====
+// Indicadores de tempo-resposta calculados a partir dos próprios dados do sistema
+// (sem interpretação/plano de ação — apenas os números). "obrigatoria:false" restringe
+// o denominador aos casos em que a conduta foi de fato realizada (ex.: trombólise),
+// espelhando como o indicador é lido na prática clínica.
+var REL_INDICADORES = {
+    sepse: [
+        { chave: 'lactato', tipo: 'tempo', titulo: 'Lactato', meta: 60, obrigatoria: true, sub: 'Coleta do lactato' },
+        { chave: 'hemoculturas', tipo: 'tempo', titulo: 'Hemocultura', meta: 60, obrigatoria: true, sub: 'Coleta de hemocultura' },
+        { chave: 'atb', tipo: 'tempo', titulo: 'Antibiótico', meta: 60, obrigatoria: true, sub: 'Administração do ATB' },
+        { chave: 'reposicao_volemica', tipo: 'binario', titulo: 'Reposição volêmica', sub: 'Casos com reposição volêmica registrada' },
+        { chave: 'reposicao_volemica', tipo: 'tempo', titulo: 'Repos. volêmica', meta: 180, obrigatoria: false, sub: 'Início da reposição volêmica' }
+    ],
+    dor_toracica: [
+        { chave: 'ecg', tipo: 'tempo', titulo: 'ECG', meta: 10, obrigatoria: true, sub: 'Realização do ECG' },
+        { chave: 'aas', tipo: 'tempo', titulo: 'AAS', meta: 10, obrigatoria: true, sub: 'Administração do AAS' },
+        { chave: 'troponina', tipo: 'tempo', titulo: 'Troponina', meta: 30, obrigatoria: true, sub: 'Coleta de troponina' },
+        { chave: 'porta_agulha', tipo: 'tempo', titulo: 'Porta-Agulha', meta: 30, obrigatoria: false, sub: 'Fibrinólise (Alteplase)' },
+        { chave: 'porta_balao', tipo: 'tempo', titulo: 'Porta-Balão', meta: 90, obrigatoria: false, sub: 'Hemodinâmica (angioplastia)' }
+    ],
+    avc: [
+        { chave: 'tc_cranio', tipo: 'tempo', titulo: 'Porta → TC', meta: 25, obrigatoria: true, sub: 'Realização da TC de crânio' },
+        { chave: 'hd_confirmada', tipo: 'tempo', titulo: 'Porta → HD confirmada', meta: 45, obrigatoria: true, sub: 'Confirmação diagnóstica' },
+        { chave: 'nihss', tipo: 'tempo', titulo: 'NIHSS', meta: 10, obrigatoria: true, sub: 'Aplicação da escala NIHSS' },
+        { chave: 'trombolise', tipo: 'tempo', titulo: 'Porta → Agulha', meta: 60, obrigatoria: false, sub: 'Administração do tPA' }
+    ]
+};
 
-function protocolosFiltradosRelatorio() {
-    var de = g('rel-de') ? g('rel-de').value : null;
-    var ate = g('rel-ate') ? g('rel-ate').value : null;
-    var tipo = g('rel-tipo') ? g('rel-tipo').value : 'all';
+var relTipoAtual = 'sepse';
+var relDe = null, relAte = null;
+var relCharts = [];
+
+function protocolosNoPeriodo(tipo) {
     return protocolos.filter(function(p) {
+        if (p.tipo !== tipo) return false;
         if (p.status === 'ativo') return false;
-        var dataP = (p.criadoEm || '').substring(0, 10);
-        if (de && dataP < de) return false;
-        if (ate && dataP > ate) return false;
-        if (tipo !== 'all' && p.tipo !== tipo) return false;
-        return true;
+        var d = (p.criadoEm || '').substring(0, 10);
+        return (!relDe || d >= relDe) && (!relAte || d <= relAte);
     });
 }
+function mesKeyDe(iso) { var d = new Date(iso); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
+var MESES_ABREV = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+function mesLabelDe(key) { var p = key.split('-'); return MESES_ABREV[parseInt(p[1], 10) - 1] + '/' + p[0].slice(2); }
+function mesesRange(de, ate) {
+    var out = [];
+    if (!de || !ate) return out;
+    var d = new Date(de + 'T00:00:00'); d.setDate(1);
+    var fim = new Date(ate + 'T00:00:00');
+    var guard = 0;
+    while (d <= fim && guard < 60) {
+        out.push(d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'));
+        d.setMonth(d.getMonth() + 1);
+        guard++;
+    }
+    return out;
+}
 
-function aplicarFiltroRelatorio() {
-    var lista = protocolosFiltradosRelatorio();
-    var porTipo = { sepse: [], dor_toracica: [], avc: [] };
-    lista.forEach(function(p) { if (porTipo[p.tipo]) porTipo[p.tipo].push(p); });
-    var obitos = lista.filter(function(p) { return p.desfecho === 'Óbito'; }).length;
-    var altas = lista.filter(function(p) { return p.desfecho === 'Alta'; }).length;
+function computarIndicador(lista, ind) {
+    if (ind.tipo === 'binario') {
+        var feitas = lista.filter(function(p) { var e = etapaPorChave(p, ind.chave); return e && e.feita; }).length;
+        return { registros: lista.length, dentro: feitas, pct: lista.length ? (feitas / lista.length * 100) : null, media: null };
+    }
+    var elegiveis = ind.obrigatoria ? lista : lista.filter(function(p) { var e = etapaPorChave(p, ind.chave); return e && e.feita; });
+    var minutos = [], dentroCount = 0;
+    elegiveis.forEach(function(p) {
+        var e = etapaPorChave(p, ind.chave);
+        if (e && e.feita) {
+            var min = minutosEntre(p.criadoEm, e.horario || e.feitaEm);
+            minutos.push(min);
+            if (min <= ind.meta) dentroCount++;
+        }
+    });
+    var media = minutos.length ? Math.round(minutos.reduce(function(a, b) { return a + b; }, 0) / minutos.length) : null;
+    return { registros: elegiveis.length, dentro: dentroCount, pct: elegiveis.length ? (dentroCount / elegiveis.length * 100) : null, media: media };
+}
+function corIndicador(pct) { if (pct == null) return 'v-grey'; if (pct >= 90) return 'v-green'; if (pct >= 80) return 'v-amber'; return 'v-red'; }
 
-    var h = '<div class="rel-stats-grid">';
-    h += '<div class="rel-stat-card"><span>Total no período</span><b>' + lista.length + '</b></div>';
-    h += '<div class="rel-stat-card"><span>Sepse</span><b>' + porTipo.sepse.length + '</b></div>';
-    h += '<div class="rel-stat-card"><span>Dor Torácica</span><b>' + porTipo.dor_toracica.length + '</b></div>';
-    h += '<div class="rel-stat-card"><span>AVC</span><b>' + porTipo.avc.length + '</b></div>';
-    h += '<div class="rel-stat-card"><span>Altas</span><b>' + altas + '</b></div>';
-    h += '<div class="rel-stat-card"><span>Óbitos</span><b>' + obitos + '</b></div>';
+function renderRelatorios() {
+    var hoje = getLocalISO().substring(0, 10);
+    if (!relAte) relAte = hoje;
+    if (!relDe) relDe = getLocalISO(new Date(Date.now() - 180 * 86400000)).substring(0, 10);
+    var h = '<div class="rel-toolbar"><div class="rel-tipos">';
+    ['sepse', 'dor_toracica', 'avc'].forEach(function(t) {
+        h += '<button class="rel-tipo-btn' + (relTipoAtual === t ? ' on' : '') + '" onclick="mudarTipoRelatorio(\'' + t + '\')">' + esc(TIPOS[t].label) + '</button>';
+    });
+    h += '</div>';
+    h += '<div class="rel-filter-field"><label>De</label><input type="date" id="rel-de" value="' + relDe + '" onchange="atualizarPeriodoRelatorio()"></div>';
+    h += '<div class="rel-filter-field"><label>Até</label><input type="date" id="rel-ate" value="' + relAte + '" onchange="atualizarPeriodoRelatorio()"></div>';
+    h += '<div class="rel-spacer"></div>';
+    h += '<button class="btn-padrao" onclick="exportarExcelRelatorio()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg>Exportar Excel</button>';
+    h += '<button class="btn-padrao" onclick="imprimirRelatorio()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>Imprimir</button>';
+    h += '</div><div class="rel-page" id="rel-page"></div>';
+    g('view-relatorios').innerHTML = h;
+    renderizarPaginaRelatorio();
+}
+function mudarTipoRelatorio(t) { relTipoAtual = t; renderRelatorios(); }
+function atualizarPeriodoRelatorio() { relDe = g('rel-de').value; relAte = g('rel-ate').value; renderizarPaginaRelatorio(); }
+
+function renderizarPaginaRelatorio() {
+    relCharts.forEach(function(c) { try { c.destroy(); } catch (e) {} });
+    relCharts = [];
+    var tipo = relTipoAtual, tipoInfo = TIPOS[tipo], indicadores = REL_INDICADORES[tipo];
+    var lista = protocolosNoPeriodo(tipo);
+    var el = g('rel-page');
+    var subbar = '<div class="rel-subbar">Pronto Socorro — Hospital Paulo Sacramento &nbsp;|&nbsp; Período: ' + fmtData(relDe + 'T00:00') + ' a ' + fmtData(relAte + 'T00:00') + '</div>';
+
+    if (!lista.length) {
+        el.innerHTML = '<div class="rel-titlebar"><h2>DASHBOARD — PROTOCOLO DE ' + esc(tipoInfo.label.toUpperCase()) + '</h2></div>' + subbar +
+            '<div class="rel-empty">Nenhum protocolo de ' + esc(tipoInfo.label) + ' concluído neste período.</div>';
+        return;
+    }
+
+    var meses = mesesRange(relDe, relAte);
+    var porMes = {}; meses.forEach(function(k) { porMes[k] = []; });
+    lista.forEach(function(p) { var k = mesKeyDe(p.criadoEm); if (porMes[k]) porMes[k].push(p); });
+    var finalizados = lista.filter(function(p) { return p.status === 'finalizado'; }).length;
+    var cancelados = lista.filter(function(p) { return p.status === 'cancelado'; }).length;
+
+    var h = '<div class="rel-titlebar"><h2>DASHBOARD — PROTOCOLO DE ' + esc(tipoInfo.label.toUpperCase()) + '</h2></div>';
+    h += '<div class="rel-subbar">Pronto Socorro — Hospital Paulo Sacramento &nbsp;|&nbsp; Período: ' + fmtData(relDe + 'T00:00') + ' a ' + fmtData(relAte + 'T00:00') + ' &nbsp;|&nbsp; ' + lista.length + ' protocolos (' + finalizados + ' finalizados, ' + cancelados + ' cancelados)</div>';
+
+    var indicadoresCalc = indicadores.map(function(ind) { return { def: ind, r: computarIndicador(lista, ind) }; });
+    h += '<div class="rel-section-title">Indicadores de Tempo-Resposta — Resultado do Período</div><div class="rel-kpi-row">';
+    indicadoresCalc.forEach(function(ic) {
+        var ind = ic.def, r = ic.r;
+        var metaTxt = ind.tipo === 'binario' ? 'registrada' : ('&le; ' + ind.meta + 'min');
+        var valorTxt = r.pct == null ? 'N/A' : r.pct.toFixed(1).replace('.', ',') + '%';
+        var subTxt = r.registros ? ('<b>' + r.dentro + ' de ' + r.registros + '</b> casos' + (r.media != null ? ' · média <b>' + fmtMin(r.media) + '</b>' : '')) : 'sem casos elegíveis';
+        h += '<div class="rel-kpi-card"><div class="kpi-title">' + esc(ind.titulo) + '<br>' + metaTxt + '</div>' +
+            '<div class="kpi-value ' + corIndicador(r.pct) + '">' + valorTxt + '</div>' +
+            '<div class="kpi-sub">' + esc(ind.sub) + '<br>' + subTxt + '</div></div>';
+    });
     h += '</div>';
 
-    ['sepse', 'dor_toracica', 'avc'].forEach(function(tipo) {
-        var grupo = porTipo[tipo];
-        if (!grupo.length) return;
-        h += '<div class="rel-section"><h4>' + TIPOS[tipo].label + ' — adesão às metas e tempos médios</h4>';
-        TIPOS[tipo].etapas.filter(function(e) { return e.metaMinutos != null; }).forEach(function(etapaDef) {
-            var registros = [];
-            grupo.forEach(function(p) {
-                var e = (p.etapas || []).find(function(x) { return x.key === etapaDef.key; });
-                if (e && e.feita) registros.push(minutosEntre(p.criadoEm, e.horario || e.feitaEm));
-            });
-            var dentro = registros.filter(function(min) { return min <= etapaDef.metaMinutos; }).length;
-            var pct = registros.length ? Math.round((dentro / registros.length) * 100) : 0;
-            var media = registros.length ? Math.round(registros.reduce(function(a, b) { return a + b; }, 0) / registros.length) : null;
-            h += '<div class="rel-bar-row"><span class="rel-bar-label">' + esc(etapaDef.label) + '</span>';
-            h += '<div class="rel-bar-track"><div class="rel-bar-fill" style="width:' + pct + '%;"></div></div>';
-            h += '<span class="rel-bar-val">' + pct + '%</span>';
-            h += '<span class="rel-bar-val" title="tempo médio">' + (media != null ? fmtMin(media) : '--') + '</span></div>';
+    h += '<div class="rel-section-title">Evolução Mensal — Gráficos</div><div class="rel-charts-row">';
+    h += '<div class="rel-chart-box"><h3>Protocolos Abertos por Mês</h3><canvas id="relChartCasos"></canvas></div>';
+    h += '<div class="rel-chart-box"><h3>% de Adesão por Indicador — Evolução Mensal</h3><canvas id="relChartAdesao"></canvas></div>';
+    h += '<div class="rel-chart-box"><h3>Distribuição dos Tempos por Indicador</h3><canvas id="relChartDistrib"></canvas></div>';
+    h += '</div>';
+
+    h += '<div class="rel-section-title">Evolução Mensal — Tabela</div><div class="rel-table-wrap"><table class="rel-data-table"><tr><th>Mês</th><th>Protocolos</th>';
+    indicadoresCalc.forEach(function(ic) { h += '<th>' + esc(ic.def.titulo) + '<span class="th-sub">' + (ic.def.tipo === 'binario' ? 'registrada' : '≤' + ic.def.meta + 'min') + '</span></th>'; });
+    h += '</tr>';
+    meses.forEach(function(k) {
+        var grupo = porMes[k] || [];
+        h += '<tr><td class="month">' + mesLabelDe(k) + '</td><td>' + grupo.length + '</td>';
+        indicadoresCalc.forEach(function(ic) {
+            var r = computarIndicador(grupo, ic.def);
+            h += '<td>' + (r.registros ? (r.pct.toFixed(1).replace('.', ',') + '% · ' + r.dentro + '/' + r.registros) : '—') + '</td>';
         });
-        h += '</div>';
+        h += '</tr>';
     });
+    h += '<tr class="total-row"><td class="month">Período</td><td>' + lista.length + '</td>';
+    indicadoresCalc.forEach(function(ic) { h += '<td>' + (ic.r.registros ? (ic.r.pct.toFixed(1).replace('.', ',') + '% · ' + ic.r.dentro + '/' + ic.r.registros) : '—') + '</td>'; });
+    h += '</tr></table></div>';
 
-    h += '<div class="rel-section"><h4>Protocolos no período</h4><div class="rel-table-wrap"><table class="rel-table"><thead><tr><th>Tipo</th><th>Paciente</th><th>Abertura</th><th>Encerramento</th><th>Desfecho</th></tr></thead><tbody>';
-    lista.sort(function(a, b) { return new Date(b.criadoEm) - new Date(a.criadoEm); }).forEach(function(p) {
-        h += '<tr><td>' + TIPOS[p.tipo].label + '</td><td>' + escHtml((p.paciente && p.paciente.nome) || '--') + '</td><td>' + fmtDataHora(p.criadoEm) + '</td><td>' + fmtDataHora(p.finalizadoEm) + '</td><td>' + escHtml(p.desfecho || p.canceladoMotivo || '--') + '</td></tr>';
-    });
-    h += '</tbody></table></div></div>';
+    h += '<div class="rel-footer">Dados extraídos do sistema de Protocolos Clínicos em ' + fmtDataHora(agoraISO()) + '. Indicadores de tempo contados a partir da abertura do protocolo (tempo-porta). Indicadores não obrigatórios (ex.: trombólise, porta-agulha, porta-balão) consideram apenas os casos em que a conduta foi realizada.</div>';
 
-    g('rel-resultado').innerHTML = h;
+    el.innerHTML = h;
+    desenharGraficosRelatorio(indicadoresCalc, lista, meses, porMes);
 }
 
-function exportarCSVRelatorio() {
-    var lista = protocolosFiltradosRelatorio();
-    var linhas = [['Tipo', 'Paciente', 'Idade', 'Convenio', 'Abertura', 'Encerramento', 'Desfecho']];
-    lista.forEach(function(p) {
-        linhas.push([TIPOS[p.tipo].label, (p.paciente && p.paciente.nome) || '', (p.paciente && p.paciente.idade) || '', (p.paciente && p.paciente.convenio) || '', fmtDataHora(p.criadoEm), fmtDataHora(p.finalizadoEm), p.desfecho || p.canceladoMotivo || '']);
+function desenharGraficosRelatorio(indicadoresCalc, lista, meses, porMes) {
+    var blue = '#2E5395', orange = '#ED7D31', green = '#2E7D32', red = '#C0392B', gold = '#B7791F', grey = '#A5A5A5';
+    var cores = [blue, orange, green, red, gold, '#7c3aed'];
+    var labels = meses.map(mesLabelDe);
+
+    var finalizadosPorMes = meses.map(function(k) { return (porMes[k] || []).filter(function(p) { return p.status === 'finalizado'; }).length; });
+    var canceladosPorMes = meses.map(function(k) { return (porMes[k] || []).filter(function(p) { return p.status === 'cancelado'; }).length; });
+    relCharts.push(new Chart(g('relChartCasos'), {
+        type: 'bar',
+        data: { labels: labels, datasets: [
+            { label: 'Finalizados', data: finalizadosPorMes, backgroundColor: blue, borderRadius: 2, maxBarThickness: 40 },
+            { label: 'Cancelados', data: canceladosPorMes, backgroundColor: grey, borderRadius: 2, maxBarThickness: 40 }
+        ] },
+        options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 9 }, boxWidth: 12 } } },
+            scales: { x: { stacked: true, grid: { display: false } }, y: { stacked: true, beginAtZero: true, grid: { color: '#EEE' } } } }
+    }));
+
+    var adesaoDatasets = indicadoresCalc.map(function(ic, i) {
+        return { label: ic.def.titulo, data: meses.map(function(k) { var r = computarIndicador(porMes[k] || [], ic.def); return r.pct == null ? null : Math.round(r.pct * 10) / 10; }),
+            borderColor: cores[i % cores.length], backgroundColor: cores[i % cores.length], tension: .25, pointRadius: 3, borderWidth: 2, spanGaps: false };
     });
-    var csv = linhas.map(function(l) { return l.map(function(v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(';'); }).join('\n');
-    var blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'relatorio_protocolos_' + getLocalISO().substring(0, 10) + '.csv';
-    a.click();
+    adesaoDatasets.push({ label: 'Referência 80%', data: meses.map(function() { return 80; }), borderColor: red, backgroundColor: red, borderDash: [5, 4], pointRadius: 0, borderWidth: 1.5 });
+    relCharts.push(new Chart(g('relChartAdesao'), {
+        type: 'line',
+        data: { labels: labels, datasets: adesaoDatasets },
+        options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 8.5 }, boxWidth: 10 } } },
+            scales: { y: { beginAtZero: true, max: 105, grid: { color: '#EEE' }, ticks: { callback: function(v) { return v + '%'; } } }, x: { grid: { display: false } } } }
+    }));
+
+    var bucketLabels = ['Dentro da meta', 'Até 1,5x a meta', 'Acima de 1,5x', 'Não realizado'];
+    var distribDatasets = indicadoresCalc.filter(function(ic) { return ic.def.tipo === 'tempo'; }).map(function(ic, i) {
+        var ind = ic.def;
+        var base = ind.obrigatoria ? lista : lista.filter(function(p) { var e = etapaPorChave(p, ind.chave); return e && e.feita; });
+        var buckets = [0, 0, 0, 0];
+        base.forEach(function(p) {
+            var e = etapaPorChave(p, ind.chave);
+            if (!e || !e.feita) { buckets[3]++; return; }
+            var min = minutosEntre(p.criadoEm, e.horario || e.feitaEm);
+            if (min <= ind.meta) buckets[0]++; else if (min <= ind.meta * 1.5) buckets[1]++; else buckets[2]++;
+        });
+        return { label: ind.titulo, data: buckets, backgroundColor: cores[i % cores.length], borderRadius: 2, maxBarThickness: 30 };
+    });
+    relCharts.push(new Chart(g('relChartDistrib'), {
+        type: 'bar',
+        data: { labels: bucketLabels, datasets: distribDatasets },
+        options: { responsive: true, plugins: { legend: { position: 'bottom', labels: { font: { size: 8.5 }, boxWidth: 10 } } },
+            scales: { y: { beginAtZero: true, grid: { color: '#EEE' } }, x: { grid: { display: false }, ticks: { font: { size: 9 } } } } }
+    }));
+}
+
+function imprimirRelatorio() {
+    document.body.classList.add('imprimindo-relatorio');
+    window.print();
+    setTimeout(function() { document.body.classList.remove('imprimindo-relatorio'); }, 500);
+}
+
+function exportarExcelRelatorio() {
+    var tipo = relTipoAtual, tipoInfo = TIPOS[tipo], indicadores = REL_INDICADORES[tipo];
+    var lista = protocolosNoPeriodo(tipo);
+    var meses = mesesRange(relDe, relAte);
+    var porMes = {}; meses.forEach(function(k) { porMes[k] = []; });
+    lista.forEach(function(p) { var k = mesKeyDe(p.criadoEm); if (porMes[k]) porMes[k].push(p); });
+
+    var resumoLinhas = [['Mês', 'Protocolos'].concat(indicadores.map(function(i) { return i.titulo + (i.tipo === 'binario' ? '' : ' (meta ' + i.meta + 'min)'); }))];
+    meses.forEach(function(k) {
+        var grupo = porMes[k] || [];
+        var linha = [mesLabelDe(k), grupo.length];
+        indicadores.forEach(function(ind) { var r = computarIndicador(grupo, ind); linha.push(r.registros ? Math.round(r.pct * 10) / 10 : null); });
+        resumoLinhas.push(linha);
+    });
+    var linhaTotal = ['Período', lista.length];
+    indicadores.forEach(function(ind) { var r = computarIndicador(lista, ind); linhaTotal.push(r.registros ? Math.round(r.pct * 10) / 10 : null); });
+    resumoLinhas.push(linhaTotal);
+
+    var protocolosLinhas = [['Tipo', 'Paciente', 'Prontuário', 'Convênio', 'Abertura', 'Status', 'Desfecho'].concat(indicadores.map(function(i) { return i.titulo + ' (min)'; }))];
+    lista.forEach(function(p) {
+        var linha = [tipoInfo.label, (p.paciente && p.paciente.nome) || '', (p.paciente && p.paciente.prontuario) || '', (p.paciente && p.paciente.convenio) || '', fmtDataHora(p.criadoEm), p.status, p.desfecho || p.canceladoMotivo || ''];
+        indicadores.forEach(function(ind) {
+            var e = etapaPorChave(p, ind.chave);
+            if (ind.tipo === 'binario') { linha.push(e && e.feita ? 'Sim' : 'Não'); return; }
+            linha.push(e && e.feita ? minutosEntre(p.criadoEm, e.horario || e.feitaEm) : null);
+        });
+        protocolosLinhas.push(linha);
+    });
+
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(resumoLinhas), 'Resumo Mensal');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(protocolosLinhas), 'Protocolos');
+    XLSX.writeFile(wb, 'Relatorio_' + tipoInfo.label.replace(/\s+/g, '_') + '_' + relDe + '_a_' + relAte + '.xlsx');
 }
 
 // ===== SISTEMA DE MODAIS (genérico) =====
