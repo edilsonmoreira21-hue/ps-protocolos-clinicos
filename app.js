@@ -229,6 +229,8 @@ var TIPOS = {
     }
 };
 var DESFECHOS = ['Internação UTI', 'Internação (Enfermaria/Unidade de Internação)', 'Alta', 'Transferência externa', 'Óbito', 'Outro'];
+var DESFECHOS_INTERNACAO = ['Internação UTI', 'Internação (Enfermaria/Unidade de Internação)'];
+function precisaDesfechoFinal(p) { return p.status === 'finalizado' && DESFECHOS_INTERNACAO.indexOf(p.desfecho) !== -1; }
 var CV_OPTIONS = ['PROPRIO', 'EXTERNO', 'PARTICULAR'];
 
 function iconeTipo(tipo) {
@@ -530,7 +532,7 @@ function renderDetalheProtocolo(id) {
         h += '<div class="field"><label>Desfecho do Pronto-Socorro</label><input type="text" value="' + esc(p.desfecho || p.canceladoMotivo || '--') + '" disabled></div>';
         if (p.desfechoFinal) {
             h += '<div class="field"><label>Desfecho Final do Paciente</label><input type="text" value="' + esc(p.desfechoFinal + ' — ' + fmtDataHora(p.desfechoFinalEm) + ' (' + (p.desfechoFinalPor || '--') + ')') + '" disabled></div>';
-        } else {
+        } else if (precisaDesfechoFinal(p)) {
             h += '<div class="field"><label>Desfecho Final do Paciente</label><div class="desfecho-actions" style="margin-top:6px;">';
             h += '<button class="etapa-btn-mini success" onclick="marcarDesfechoFinal(\'' + p.id + '\', \'Alta Hospitalar\')">Alta Hospitalar</button>';
             h += '<button class="etapa-btn-mini danger" onclick="marcarDesfechoFinal(\'' + p.id + '\', \'Óbito\')">Óbito</button>';
@@ -851,12 +853,12 @@ function desfazerDesfechoFinal(protocoloId) {
 }
 
 function protocolosDesfechoPendente() {
-    return protocolos.filter(function(p) { return p.status !== 'ativo' && !p.desfechoFinal; })
+    return protocolos.filter(function(p) { return p.status !== 'ativo' && precisaDesfechoFinal(p) && !p.desfechoFinal; })
         .sort(function(a, b) { return new Date(b.finalizadoEm || b.criadoEm) - new Date(a.finalizadoEm || a.criadoEm); });
 }
 function protocolosDesfechoConcluido() {
-    return protocolos.filter(function(p) { return !!p.desfechoFinal; })
-        .sort(function(a, b) { return new Date(b.desfechoFinalEm) - new Date(a.desfechoFinalEm); });
+    return protocolos.filter(function(p) { return p.status !== 'ativo' && (!!p.desfechoFinal || !precisaDesfechoFinal(p)); })
+        .sort(function(a, b) { return new Date(b.desfechoFinalEm || b.finalizadoEm || b.criadoEm) - new Date(a.desfechoFinalEm || a.finalizadoEm || a.criadoEm); });
 }
 
 var desfechosSubTab = 'pendentes';
@@ -897,9 +899,12 @@ function renderizarPaginaDesfechos() {
             h += '<button class="etapa-btn-mini success" onclick="marcarDesfechoFinal(\'' + p.id + '\', \'Alta Hospitalar\')">Alta Hospitalar</button>';
             h += '<button class="etapa-btn-mini danger" onclick="marcarDesfechoFinal(\'' + p.id + '\', \'Óbito\')">Óbito</button>';
             h += '</div>';
-        } else {
+        } else if (p.desfechoFinal) {
             var cor = p.desfechoFinal === 'Óbito' ? 'var(--danger)' : 'var(--success)';
             h += '<div class="desfecho-final-badge" style="color:' + cor + ';border-color:' + cor + ';" onclick="event.stopPropagation();">' + esc(p.desfechoFinal) + '<span class="desfecho-desfazer" onclick="desfazerDesfechoFinal(\'' + p.id + '\')">desfazer</span></div>';
+        } else {
+            var rotuloAuto = p.status === 'finalizado' ? (p.desfecho || '--') : ('Excluído — ' + (p.canceladoMotivo || '--'));
+            h += '<div class="desfecho-final-badge" style="color:var(--text-tertiary);border-color:var(--border);">' + esc(rotuloAuto) + '</div>';
         }
         h += '</div>';
     });
