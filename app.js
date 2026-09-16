@@ -110,7 +110,7 @@ function cadastrarProfissional() {
     }
     auth.createUserWithEmailAndPassword(email, senha).then(function(cred) {
         var uid = cred.user.uid;
-        return db.collection('profissionais').doc(uid).set({ nome: nome, cargo: cargo, email: email, criadoEm: agoraISO() })
+        return db.collection('profissionais').doc(uid).set({ nome: nome, cargo: cargo, email: email, criadoEm: agoraISO(), admin: false, ativo: true })
             .then(function() { return cred.user.updateProfile({ displayName: nome }).catch(function() {}); })
             .then(function() { return carregarPerfilProfissional(uid); });
     }).catch(function(error) {
@@ -126,7 +126,9 @@ function carregarPerfilProfissional(uid) {
         if (!usuarioAtual || usuarioAtual.uid !== uid) usuarioAtual = { uid: uid, email: d.email };
         usuarioAtual.nome = d.nome;
         usuarioAtual.cargo = d.cargo;
+        usuarioAtual.admin = !!d.admin;
         atualizarBadgeUsuario();
+        atualizarVisibilidadeAdmin();
     }).catch(function(err) { console.error('Erro ao carregar perfil do profissional:', err); });
 }
 
@@ -138,18 +140,63 @@ function atualizarBadgeUsuario() {
     el.innerHTML = '<div class="usuario-badge-nome">' + escHtml(nome) + '</div><div class="usuario-badge-sub">' + escHtml(sub) + '</div>';
 }
 
+function atualizarVisibilidadeAdmin() {
+    var tabAdmin = g('tab-admin');
+    if (tabAdmin) tabAdmin.style.display = (usuarioAtual && usuarioAtual.admin) ? '' : 'none';
+    var btnTornar = g('btn-tornar-admin');
+    if (!btnTornar) return;
+    if (usuarioAtual && usuarioAtual.admin) { btnTornar.style.display = 'none'; return; }
+    db.collection('profissionais').where('admin', '==', true).limit(1).get().then(function(snap) {
+        btnTornar.style.display = snap.empty ? '' : 'none';
+    }).catch(function() { btnTornar.style.display = 'none'; });
+}
+
+function tornarMeAdmin() {
+    db.collection('profissionais').where('admin', '==', true).limit(1).get().then(function(snap) {
+        if (!snap.empty) { alert('Já existe um administrador cadastrado. Peça para ele te conceder acesso pela tela de Administração.'); atualizarVisibilidadeAdmin(); return; }
+        if (!confirm('Tornar-se administrador do sistema? Você poderá gerenciar os demais profissionais cadastrados.')) return;
+        db.collection('profissionais').doc(usuarioAtual.uid).update({ admin: true }).then(function() {
+            usuarioAtual.admin = true;
+            atualizarVisibilidadeAdmin();
+            mostrarToast('Você agora é administrador', 'Acesse a aba Administração para gerenciar profissionais.');
+        }).catch(function(err) { alert('Erro ao conceder acesso: ' + err.message); });
+    });
+}
+
+function entrarNoApp() {
+    var loginScreen = g('login-screen'), appContent = g('app-content');
+    atualizarBadgeUsuario();
+    atualizarVisibilidadeAdmin();
+    if (loginScreen) loginScreen.style.display = 'none';
+    if (appContent) appContent.style.display = 'flex';
+    g('estacao-label').innerText = getEstacaoAtual() ? estacaoTxt(getEstacaoAtual()) : 'Selecionar estação';
+    renderFiltrosEstacao();
+    iniciarBancoDeDados();
+    if (!getEstacaoAtual()) abrirSeletorEstacao();
+}
+
 auth.onAuthStateChanged(function(user) {
     var loginScreen = g('login-screen'), appContent = g('app-content');
     if (user) {
-        if (!usuarioAtual || usuarioAtual.uid !== user.uid) usuarioAtual = { uid: user.uid, email: user.email };
-        atualizarBadgeUsuario();
-        carregarPerfilProfissional(user.uid);
-        if (loginScreen) loginScreen.style.display = 'none';
-        if (appContent) appContent.style.display = 'flex';
-        g('estacao-label').innerText = getEstacaoAtual() ? estacaoTxt(getEstacaoAtual()) : 'Selecionar estação';
-        renderFiltrosEstacao();
-        iniciarBancoDeDados();
-        if (!getEstacaoAtual()) abrirSeletorEstacao();
+        db.collection('profissionais').doc(user.uid).get().then(function(doc) {
+            if (doc.exists && doc.data().ativo === false) {
+                alert('Sua conta foi desativada pelo administrador do sistema. Procure o responsável para mais informações.');
+                auth.signOut();
+                return;
+            }
+            if (!usuarioAtual || usuarioAtual.uid !== user.uid) usuarioAtual = { uid: user.uid, email: user.email };
+            if (doc.exists) {
+                var d = doc.data();
+                usuarioAtual.nome = d.nome;
+                usuarioAtual.cargo = d.cargo;
+                usuarioAtual.admin = !!d.admin;
+            }
+            entrarNoApp();
+        }).catch(function(err) {
+            console.error('Erro ao verificar perfil do profissional:', err);
+            if (!usuarioAtual || usuarioAtual.uid !== user.uid) usuarioAtual = { uid: user.uid, email: user.email };
+            entrarNoApp();
+        });
     } else {
         if (loginScreen) loginScreen.style.display = 'flex';
         if (appContent) appContent.style.display = 'none';
@@ -157,6 +204,90 @@ auth.onAuthStateChanged(function(user) {
         usuarioAtual = null; protocolos = []; primeiraCarga = true;
     }
 });
+
+// ===== ADMINISTRAÇÃO DE PROFISSIONAIS =====
+var listaProfissionais = [];
+function renderAdmin() {
+    var el = g('view-admin');
+    el.innerHTML = '<div class="rel-page" id="admin-page">' +
+        '<div class="rel-header"><h2>Administração de Profissionais</h2><span id="admin-count"></span></div>' +
+        '<div class="rel-list" id="admin-lista"></div></div>';
+    carregarProfissionais();
+}
+function carregarProfissionais() {
+    g('admin-lista').innerHTML = '<div class="rel-empty">Carregando...</div>';
+    db.collection('profissionais').orderBy('nome').get().then(function(snap) {
+        listaProfissionais = snap.docs.map(function(d) { return Object.assign({ uid: d.id }, d.data()); });
+        renderizarPaginaAdmin();
+    }).catch(function(err) {
+        g('admin-lista').innerHTML = '<div class="rel-empty">Erro ao carregar profissionais: ' + esc(err.message) + '</div>';
+    });
+}
+function renderizarPaginaAdmin() {
+    var contagem = g('admin-count');
+    if (contagem) contagem.innerText = listaProfissionais.length + ' profissional(is)';
+    if (!listaProfissionais.length) { g('admin-lista').innerHTML = '<div class="rel-empty">Nenhum profissional cadastrado.</div>'; return; }
+    var h = '';
+    listaProfissionais.forEach(function(p) {
+        var desativado = p.ativo === false;
+        var tags = (p.admin ? ' · <b style="color:var(--accent);">Administrador</b>' : '') + (desativado ? ' · <b style="color:var(--danger);">Desativado</b>' : '');
+        h += '<div class="rel-list-row admin-row">';
+        h += '<div class="rel-list-main">';
+        h += '<div class="admin-edit-fields">';
+        h += '<input type="text" class="admin-input" id="admin-nome-' + p.uid + '" value="' + esc(p.nome || '') + '" placeholder="Nome">';
+        h += '<input type="text" class="admin-input" id="admin-cargo-' + p.uid + '" value="' + esc(p.cargo || '') + '" placeholder="Cargo">';
+        h += '<button class="etapa-btn-mini primary" onclick="salvarEdicaoProfissional(\'' + p.uid + '\')">Salvar</button>';
+        h += '</div>';
+        h += '<div class="rel-list-sub">' + esc(p.email || '') + tags + '</div>';
+        h += '</div>';
+        h += '<div class="desfecho-actions">';
+        h += '<button class="etapa-btn-mini' + (p.admin ? ' danger' : ' success') + '" onclick="alternarAdminProfissional(\'' + p.uid + '\', ' + (!p.admin) + ')">' + (p.admin ? 'Remover admin' : 'Tornar admin') + '</button>';
+        h += '<button class="etapa-btn-mini' + (desativado ? ' success' : ' danger') + '" onclick="alternarAtivoProfissional(\'' + p.uid + '\', ' + desativado + ')">' + (desativado ? 'Reativar' : 'Desativar') + '</button>';
+        h += '</div>';
+        h += '</div>';
+    });
+    g('admin-lista').innerHTML = h;
+}
+function salvarEdicaoProfissional(uid) {
+    var nome = g('admin-nome-' + uid).value.trim();
+    var cargo = g('admin-cargo-' + uid).value.trim();
+    if (!nome || !cargo) { alert('Preencha nome e cargo.'); return; }
+    db.collection('profissionais').doc(uid).update({ nome: nome, cargo: cargo }).then(function() {
+        mostrarToast('Profissional atualizado', nome);
+        if (uid === usuarioAtual.uid) { usuarioAtual.nome = nome; usuarioAtual.cargo = cargo; atualizarBadgeUsuario(); }
+        carregarProfissionais();
+    }).catch(function(err) { alert('Erro ao salvar: ' + err.message); });
+}
+function alternarAdminProfissional(uid, novoValor) {
+    var prof = listaProfissionais.find(function(p) { return p.uid === uid; });
+    var nomeProf = (prof && (prof.nome || prof.email)) || uid;
+    if (!novoValor) {
+        if (uid === usuarioAtual.uid && !confirm('Tem certeza que deseja remover seu próprio acesso de administrador?')) return;
+        db.collection('profissionais').where('admin', '==', true).get().then(function(snap) {
+            if (snap.size <= 1) { alert('Não é possível remover o último administrador do sistema.'); return; }
+            aplicarAlternarAdmin(uid, novoValor);
+        }).catch(function(err) { alert('Erro ao verificar administradores: ' + err.message); });
+        return;
+    }
+    if (!confirm('Conceder acesso de administrador a "' + nomeProf + '"?')) return;
+    aplicarAlternarAdmin(uid, novoValor);
+}
+function aplicarAlternarAdmin(uid, novoValor) {
+    db.collection('profissionais').doc(uid).update({ admin: novoValor }).then(function() {
+        if (uid === usuarioAtual.uid) { usuarioAtual.admin = novoValor; atualizarVisibilidadeAdmin(); }
+        carregarProfissionais();
+    }).catch(function(err) { alert('Erro ao atualizar: ' + err.message); });
+}
+function alternarAtivoProfissional(uid, novoValor) {
+    if (uid === usuarioAtual.uid) { alert('Você não pode desativar sua própria conta.'); return; }
+    var prof = listaProfissionais.find(function(p) { return p.uid === uid; });
+    var nomeProf = (prof && (prof.nome || prof.email)) || uid;
+    var acao = novoValor ? 'reativar' : 'desativar';
+    if (!confirm('Confirma ' + acao + ' o acesso de "' + nomeProf + '"?' + (novoValor ? '' : ' A pessoa não conseguirá mais entrar no sistema.'))) return;
+    db.collection('profissionais').doc(uid).update({ ativo: novoValor }).then(function() {
+        carregarProfissionais();
+    }).catch(function(err) { alert('Erro ao atualizar: ' + err.message); });
+}
 
 // ===== TEMPLATES CLÍNICOS DOS PROTOCOLOS =====
 // Campos, ordem e metas de tempo replicados dos formulários institucionais Hapvida/NotreDame
@@ -316,9 +447,11 @@ function mudarView(view) {
     g('view-andamento-cards').style.display = view === 'andamento' ? 'block' : 'none';
     g('view-desfechos').style.display = view === 'desfechos' ? 'flex' : 'none';
     g('view-relatorios').style.display = view === 'relatorios' ? 'flex' : 'none';
+    g('view-admin').style.display = view === 'admin' ? 'flex' : 'none';
     g('btn-novo-protocolo').style.display = view === 'andamento' ? 'flex' : 'none';
     if (view === 'relatorios') renderRelatorios();
     if (view === 'desfechos') renderDesfechos();
+    if (view === 'admin') renderAdmin();
 }
 
 function renderView() {
