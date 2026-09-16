@@ -1,0 +1,13 @@
+{
+  "hosting": {
+    "site": "hps-protocolos-clinicos",
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      ".firebaserc",
+      "**/.*",
+      "**/.*/**",
+      "*.md"
+    ]
+  }
+}
