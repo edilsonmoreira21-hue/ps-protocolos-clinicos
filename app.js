@@ -1051,9 +1051,9 @@ function renderizarPaginaDesfechos() {
 // Os dados do protocolo são preenchidos nos mesmos campos/posições do formulário original,
 // em tinta azul, para se distinguir do texto impresso do formulário (preto). Uma página
 // final com a linha do tempo digital completa é anexada como auditoria complementar.
-var logoBase64Cache = null;
-function carregarLogoBase64() {
-    if (logoBase64Cache) return Promise.resolve(logoBase64Cache);
+var imagemBase64Cache = {};
+function carregarImagemBase64(caminho) {
+    if (imagemBase64Cache[caminho]) return Promise.resolve(imagemBase64Cache[caminho]);
     return new Promise(function(resolve) {
         var img = new Image();
         img.onload = function() {
@@ -1061,12 +1061,35 @@ function carregarLogoBase64() {
                 var canvas = document.createElement('canvas');
                 canvas.width = img.width; canvas.height = img.height;
                 canvas.getContext('2d').drawImage(img, 0, 0);
-                logoBase64Cache = canvas.toDataURL('image/png');
-            } catch (e) { logoBase64Cache = null; }
-            resolve(logoBase64Cache);
+                imagemBase64Cache[caminho] = canvas.toDataURL('image/png');
+            } catch (e) { imagemBase64Cache[caminho] = null; }
+            resolve(imagemBase64Cache[caminho]);
         };
         img.onerror = function() { resolve(null); };
-        img.src = 'logo.png';
+        img.src = caminho;
+    });
+}
+function carregarLogoBase64() { return carregarImagemBase64('logo.png'); }
+
+var imagemFundoJpegCache = {};
+function carregarImagemFundoJPEG(caminho) {
+    if (imagemFundoJpegCache[caminho]) return Promise.resolve(imagemFundoJpegCache[caminho]);
+    return new Promise(function(resolve) {
+        var img = new Image();
+        img.onload = function() {
+            try {
+                var canvas = document.createElement('canvas');
+                canvas.width = img.width; canvas.height = img.height;
+                var ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+                imagemFundoJpegCache[caminho] = canvas.toDataURL('image/jpeg', 0.85);
+            } catch (e) { imagemFundoJpegCache[caminho] = null; }
+            resolve(imagemFundoJpegCache[caminho]);
+        };
+        img.onerror = function() { resolve(null); };
+        img.src = caminho;
     });
 }
 function nomeArquivoPDF(p) {
@@ -1206,146 +1229,107 @@ function tabelaCriterios(doc, w, h, x0, y0, x1, y1, titulo, grupos, xdiv) {
 function textoMarcado(itens, valorEtapa) { return function(op) { return valorEtapa && valorEtapa.indexOf(op) !== -1; }; }
 
 // ===== PÁGINAS — SEPSE =====
-function desenharSepseP1(doc, w, h, p, logo) {
+function desenharSepseP1(doc, w, h, p, logo, fundo) {
     var pac = p.paciente || {};
-    if (logo) { try { doc.addImage(logo, 'PNG', _fx(w, 0.80), _fy(h, 0.025), _fx(w, 0.16), _fy(h, 0.06)); } catch (e) {} }
-    ret(doc, w, h, 0.035, 0.095, 0.965, 0.172, { esp: 1.1 });
-    campoLinha(doc, w, h, 0.050, 0.113, 0.900, 'Nome completo do paciente:', pac.nome, { tam: 8.2 });
-    campoLinha(doc, w, h, 0.050, 0.136, 0.270, 'Data de nascimento:', '', { tam: 8 });
-    campoLinha(doc, w, h, 0.360, 0.136, 0.230, 'Atendimento:', pac.prontuario, { tam: 8 });
-    campoLinha(doc, w, h, 0.660, 0.136, 0.280, 'Hospital:', 'Hospital Paulo Sacramento', { tam: 8 });
-    campoLinha(doc, w, h, 0.050, 0.159, 0.400, 'Responsável pela abertura da ficha:', p.criadoPor ? nomeDe(p.criadoPor) : '', { tam: 8 });
-    campoLinha(doc, w, h, 0.580, 0.159, 0.155, 'Data:', fmtDataCurta(p.criadoEm), { tam: 8 });
-    campoLinha(doc, w, h, 0.780, 0.159, 0.170, 'Hora:', fmtHoraCurta(p.criadoEm), { tam: 8 });
+    if (fundo) { try { doc.addImage(fundo, 'JPEG', 0, 0, w, h); } catch (e) {} }
+    else if (logo) { try { doc.addImage(logo, 'PNG', _fx(w, 0.80), _fy(h, 0.025), _fx(w, 0.16), _fy(h, 0.06)); } catch (e) {} }
 
-    txt(doc, w, h, 0.5, 0.196, 'GERENCIAMENTO DO PROTOCOLO DE SEPSE ADULTO', { tam: 12.5, negrito: true, align: 'center' });
-    txt(doc, w, h, 0.5, 0.214, 'Marque com um X as opções dos critérios de alerta para SIRS.', { tam: 8.5, align: 'center' });
+    function val(xpt, ypt, s, o) {
+        if (s == null || s === '') return;
+        txt(doc, w, h, xpt / w, ypt / h, String(s), Object.assign({ tam: 7.5, cor: COR_TINTA }, o || {}));
+    }
+    function marcaX(xpt, ypt) { txt(doc, w, h, xpt / w, ypt / h, 'X', { tam: 8, negrito: true, cor: COR_TINTA, align: 'center' }); }
+
+    val(117, 62.5, pac.nome, { tam: 8 });
+    val(228, 81.0, pac.prontuario);
+    val(340, 81.0, 'Hospital Paulo Sacramento');
+    val(136, 100.2, p.criadoPor ? nomeDe(p.criadoPor) : '', { tam: 7 });
+    if (p.criadoEm) {
+        var dtAbertura = new Date(p.criadoEm);
+        val(302, 100.2, String(dtAbertura.getDate()).padStart(2, '0'), { tam: 7, align: 'center' });
+        val(328, 100.2, String(dtAbertura.getMonth() + 1).padStart(2, '0'), { tam: 7, align: 'center' });
+        val(356, 100.2, String(dtAbertura.getFullYear()), { tam: 6.4, align: 'center' });
+    }
+    val(391, 100.2, fmtHoraCurta(p.criadoEm), { tam: 7.5 });
 
     var sirs = etapaPorChave(p, 'criterios_sirs'), sirsOp = opcoesDaEtapa('sepse', 'criterios_sirs');
-    var mSirs = textoMarcado(null, sirs && sirs.valor);
-    tabelaCriterios(doc, w, h, 0.035, 0.255, 0.415, 0.430, 'Critérios sinais de SIRS', [
-        { itens: [{ label: sirsOp[0], marcado: mSirs(sirsOp[0]) }, { label: sirsOp[1], marcado: mSirs(sirsOp[1]) }, { label: sirsOp[2], marcado: mSirs(sirsOp[2]) }, { label: sirsOp[3], marcado: mSirs(sirsOp[3]) }] },
-        { header: 'Se exames disponíveis', itens: [{ label: sirsOp[4], marcado: mSirs(sirsOp[4]) }, { label: sirsOp[5], marcado: mSirs(sirsOp[5]) }, { label: sirsOp[6], marcado: mSirs(sirsOp[6]) }] }
-    ], 0.205);
+    var sirsMarcado = sirs && sirs.valor ? sirs.valor : '';
+    var sirsY = [192.8, 207.8, 222.5, 239.1, 274.9, 289.7, 304.7];
+    sirsOp.forEach(function(op, i) { if (sirsMarcado.indexOf(op) !== -1) marcaX(39.0, sirsY[i]); });
 
     var disf = etapaPorChave(p, 'criterios_disfuncao'), disfOp = opcoesDaEtapa('sepse', 'criterios_disfuncao');
-    var mDisf = textoMarcado(null, disf && disf.valor);
-    tabelaCriterios(doc, w, h, 0.440, 0.255, 0.965, 0.430, 'Critérios de disfunção orgânica', [
-        { itens: disfOp.map(function(op) { return { label: op, marcado: mDisf(op) }; }) }
-    ], 0.500);
-
-    var paragrafos = [
-        'Diante da suspeita clínica de sepse, cada segundo é crucial. Para garantir uma resposta mais',
-        'eficaz, siga os passos listados no verso deste impresso.', '',
-        'Sua participação é fundamental no combate a essa doença. Contamos com seu comprometimento',
-        'e cuidado para juntos fazermos a diferença na vida dos nossos pacientes.'
-    ];
-    paragrafos.forEach(function(l, i) { txt(doc, w, h, 0.5, 0.475 + i * 0.021, l, { tam: 9, align: 'center' }); });
-    txt(doc, w, h, 0.5, 0.605, 'Pense, pode ser sepse, pois tempo é vida!', { tam: 11.5, negrito: true, align: 'center' });
+    var disfMarcado = disf && disf.valor ? disf.valor : '';
+    var disfY = [197.5, 212.3, 227.2, 247.7, 262.4, 278.9, 296.3];
+    disfOp.forEach(function(op, i) { if (disfMarcado.indexOf(op) !== -1) marcaX(196.4, disfY[i]); });
 }
 
-function desenharSepseP2(doc, w, h, p) {
+function desenharSepseP2(doc, w, h, p, logo, fundo) {
+    if (fundo) { try { doc.addImage(fundo, 'JPEG', 0, 0, w, h); } catch (e) {} }
     var e = function(k) { return etapaPorChave(p, k); };
-    var vh = function(k) { var et = e(k); if (!et || !et.feita) return ''; var hr = textoEtapaHora(et); return (et.valor || '') + (hr ? ' — ' + hr : ''); };
-    var CX0 = 0.375, CX1 = 0.700, CXM = (CX0 + CX1) / 2;
-    var AX0 = 0.715, AX1 = 0.975;
-    var AXL0 = 0.025, AXL1 = 0.345;
+    function dataDe(k) { var et = e(k); return et && et.feita ? fmtDataHora(et.horario || et.feitaEm) : ''; }
+    function val(xpt, ypt, s, o) {
+        if (s == null || s === '') return;
+        txt(doc, w, h, xpt / w, ypt / h, String(s), Object.assign({ tam: 7, cor: COR_TINTA }, o || {}));
+    }
+    function marcaX(xpt, ypt) { txt(doc, w, h, xpt / w, ypt / h, 'X', { tam: 8, negrito: true, cor: COR_TINTA, align: 'center' }); }
 
-    circ(doc, w, h, 0.130, 0.028, 0.014, { preench: [0, 0, 0] });
-    seta(doc, w, h, 0.150, 0.028, CX0, 0.028);
-    caixaFluxo(doc, w, h, CX0, 0.014, CX1, 0.068, ['Pelo menos dois critérios de SIRS', 'e/ou critério de disfunção orgânica.']);
-    seta(doc, w, h, CXM, 0.068, CXM, 0.092);
-    caixaFluxo(doc, w, h, CX0, 0.092, CX1, 0.146, ['Realizar a abertura do protocolo de sepse', 'e comunicar ao médico imediatamente.']);
-    lin(doc, w, h, CX1, 0.119, AX0, 0.119, { tracejado: true });
-    caixaAnotacao(doc, w, h, AX0, 0.092, AX1, 0.158, 'Avaliação médica:');
-    campoLinha(doc, w, h, AX0 + 0.012, 0.123, 0.220, 'Horário:', textoEtapaHora(e('avaliacao_medica')), { tam: 7.2 });
-    txt(doc, w, h, AX0 + 0.012, 0.144, 'Carimbo Médico: ____________', { tam: 6.8 });
+    // Avaliação médica
+    val(437, 179, dataDe('avaliacao_medica'), { tam: 6.5, maxW: 115 });
 
-    txt(doc, w, h, CXM, 0.162, 'Há suspeita ou confirmação da presença', { tam: 7.4, align: 'center' });
-    txt(doc, w, h, CXM, 0.173, 'de infecção?', { tam: 7.4, align: 'center' });
-    seta(doc, w, h, CXM, 0.146, CXM, 0.182);
-    diam(doc, w, h, CXM, 0.208, 0.080, 0.026, { preench: [222, 232, 248] });
-    txt(doc, w, h, CXM + 0.010, 0.196, 'Não', { tam: 7.2, negrito: true });
-    seta(doc, w, h, CX1, 0.208, AX0, 0.208);
-    caixaFluxo(doc, w, h, AX0, 0.194, 0.800, 0.222, ['Excluir do protocolo'], { preench: [222, 222, 222], tam: 6.6 });
-    seta(doc, w, h, 0.800, 0.208, 0.850, 0.208);
-    caixaFluxo(doc, w, h, 0.850, 0.188, 0.968, 0.228, ['Seguir com atendimento', 'fora do protocolo'], { preench: [222, 222, 222], tam: 6.2 });
-    circ(doc, w, h, 0.977, 0.208, 0.012, { preench: [0, 0, 0] });
-    caixaAnotacao(doc, w, h, AX0, 0.236, AX1, 0.296, 'Exclusão:');
-    campoLinha(doc, w, h, AX0 + 0.012, 0.266, 0.220, 'Data/Hora:', (p.status === 'cancelado' && (TIPOS.sepse.motivosExclusao || [])[0] === p.canceladoMotivo) ? fmtDataHora(p.finalizadoEm) : '', { tam: 6.8 });
-    txt(doc, w, h, AX0 + 0.012, 0.286, 'Carimbo Médico: ____________', { tam: 6.4 });
+    // Exclusão 1 — suspeita de infecção descartada
+    if (p.status === 'cancelado' && (TIPOS.sepse.motivosExclusao || [])[0] === p.canceladoMotivo) {
+        val(437, 296, fmtDataHora(p.finalizadoEm), { tam: 6.5, maxW: 100 });
+    }
 
-    txt(doc, w, h, CXM + 0.010, 0.242, 'Sim', { tam: 7.2, negrito: true });
-    seta(doc, w, h, CXM, 0.234, CXM, 0.264);
-    caixaFluxo(doc, w, h, CX0, 0.264, CX1, 0.304, ['Solicitar e coletar pacote sepse 1 hora']);
-    lin(doc, w, h, CX0, 0.284, AXL1, 0.284, { tracejado: true });
-    caixaAnotacao(doc, w, h, AXL0, 0.264, AXL1, 0.374, 'Coleta de exames:');
-    campoLinha(doc, w, h, AXL0 + 0.012, 0.298, 0.290, 'Hemocultura:', textoEtapaHora(e('hemoculturas')), { tam: 7 });
-    campoLinha(doc, w, h, AXL0 + 0.012, 0.322, 0.290, 'Lactato — horário:', textoEtapaHora(e('lactato')), { tam: 7 });
-    campoLinha(doc, w, h, AXL0 + 0.012, 0.346, 0.290, 'Lactato — resultado:', (function() { var l = e('lactato'); return l && l.feita ? l.valor + (l.unidade ? ' ' + l.unidade : '') : ''; })(), { tam: 7 });
+    // Coleta de exames (hemocultura / lactato)
+    val(126, 244, dataDe('hemoculturas'), { tam: 6 });
+    val(126, 256, dataDe('lactato'), { tam: 6 });
+    var lac = e('lactato');
+    val(142, 262, lac && lac.feita ? (lac.valor + (lac.unidade ? ' ' + lac.unidade : '')) : '', { tam: 6 });
 
-    seta(doc, w, h, CXM, 0.304, CXM, 0.332);
-    txt(doc, w, h, CXM, 0.340, 'Há presença de sinais de choque?', { tam: 7.4, align: 'center' });
-    diam(doc, w, h, CXM, 0.364, 0.058, 0.020, { preench: [222, 232, 248] });
-    seta(doc, w, h, CXM, 0.384, CXM, 0.398);
-    caixaFluxo(doc, w, h, CX0, 0.398, CX1, 0.440, [
-        'Se sim (choque séptico): administrar ATB em até 1h.',
-        'Se não: administrar ATB em até 3h (sepse sem choque).'
-    ], { preench: [222, 222, 222], tam: 6.4, negrito: false });
+    // Antibiótico — prescrição e administração
+    var atbPrescrito = e('atb_prescrito');
+    val(83, 309, atbPrescrito && atbPrescrito.feita ? atbPrescrito.valor : '', { tam: 6.4, maxW: 78 });
+    val(83, 324, dataDe('atb_prescrito'), { tam: 6, maxW: 78 });
+    var atbAdmin = e('atb');
+    val(83, 349, atbAdmin && atbAdmin.feita ? atbAdmin.valor : '', { tam: 6.4, maxW: 78 });
+    val(83, 366, dataDe('atb'), { tam: 6, maxW: 78 });
 
-    seta(doc, w, h, CXM, 0.440, CXM, 0.454);
-    caixaFluxo(doc, w, h, CX0, 0.454, CX1, 0.508, ['Definir foco infeccioso e', 'prescrever antibioticoterapia']);
-    lin(doc, w, h, CX1, 0.481, AX0, 0.481, { tracejado: true });
-    caixaAnotacao(doc, w, h, AX0, 0.336, AX1, 0.472, 'Antibioticoterapia / Foco:');
-    campoLinha(doc, w, h, AX0 + 0.012, 0.372, 0.230, 'Prescrição:', vh('atb_prescrito'), { tam: 6.6 });
-    campoLinha(doc, w, h, AX0 + 0.012, 0.397, 0.230, 'Administração:', vh('atb'), { tam: 6.6 });
-    campoLinha(doc, w, h, AX0 + 0.012, 0.422, 0.230, 'Foco:', (function() { var f = e('foco_infeccioso'); return f && f.feita ? f.valor : ''; })(), { tam: 6.6 });
-    txt(doc, w, h, AX0 + 0.012, 0.448, 'Carimbo Médico: ____________', { tam: 6.2 });
+    // Foco infeccioso — marca a opção correspondente entre parênteses, ou escreve em "outros"
+    var foco = e('foco_infeccioso');
+    var vfoco = foco && foco.feita ? foco.valor : '';
+    var focoPos = { 'Pulmonar': [462, 428], 'Urinário': [495, 428], 'Abdominal': [414, 439], 'Cutâneo': [452, 439], 'Neurológico': [477, 439] };
+    if (vfoco && focoPos[vfoco]) marcaX(focoPos[vfoco][0], focoPos[vfoco][1]);
+    else if (vfoco) val(458, 452, vfoco, { tam: 6, maxW: 95 });
 
-    txt(doc, w, h, CXM, 0.518, 'Há disfunção orgânica após o resultado', { tam: 7.4, align: 'center' });
-    txt(doc, w, h, CXM, 0.529, 'do pacote sepse?', { tam: 7.4, align: 'center' });
-    seta(doc, w, h, CXM, 0.508, CXM, 0.538);
-    diam(doc, w, h, CXM, 0.568, 0.080, 0.026, { preench: [222, 232, 248] });
-    txt(doc, w, h, CXM + 0.010, 0.556, 'Não', { tam: 7.2, negrito: true });
-    seta(doc, w, h, CX1, 0.568, AX0, 0.568);
-    caixaFluxo(doc, w, h, AX0, 0.554, 0.800, 0.582, ['Excluir protocolo'], { preench: [222, 222, 222], tam: 6.6 });
-    seta(doc, w, h, 0.800, 0.568, 0.850, 0.568);
-    caixaFluxo(doc, w, h, 0.850, 0.548, 0.968, 0.588, ['Seguir com atendimento', 'fora do protocolo'], { preench: [222, 222, 222], tam: 6.2 });
-    circ(doc, w, h, 0.977, 0.568, 0.012, { preench: [0, 0, 0] });
-    caixaAnotacao(doc, w, h, AX0, 0.596, AX1, 0.656, 'Exclusão:');
-    campoLinha(doc, w, h, AX0 + 0.012, 0.626, 0.220, 'Data/Hora:', (p.status === 'cancelado' && (TIPOS.sepse.motivosExclusao || [])[1] === p.canceladoMotivo) ? fmtDataHora(p.finalizadoEm) : '', { tam: 6.8 });
-    txt(doc, w, h, AX0 + 0.012, 0.646, 'Carimbo Médico: ____________', { tam: 6.4 });
+    // Exclusão 2 — sem disfunção orgânica após pacote sepse
+    if (p.status === 'cancelado' && (TIPOS.sepse.motivosExclusao || [])[1] === p.canceladoMotivo) {
+        val(443, 610, fmtDataHora(p.finalizadoEm), { tam: 6.5, maxW: 95 });
+    }
 
-    txt(doc, w, h, CXM + 0.010, 0.602, 'Sim', { tam: 7.2, negrito: true });
-    seta(doc, w, h, CXM, 0.594, CXM, 0.624);
-    caixaFluxo(doc, w, h, 0.360, 0.624, 0.700, 0.760, [
-        '• Realizar reposição volêmica com 30 mL/kg de cristaloides,',
-        'ajustando conforme janelas de perfusão (diurese, débito',
-        'urinário e tempo de enchimento capilar).',
-        '• Monitorar o paciente de 1/1h; débito urinário de 2/2h,',
-        'passagem de sonda caso haja necessidade.',
-        '• Se PAM < 65 mmHg, iniciar noradrenalina e providenciar',
-        'passagem de acesso central.',
-        '• Coleta de segunda amostra do lactato.'
-    ], { raio: 8, esp: 1.3, tam: 6.6 });
-    lin(doc, w, h, 0.360, 0.700, AXL1, 0.700, { tracejado: true });
-    caixaAnotacao(doc, w, h, AXL0, 0.624, AXL1, 0.776, 'Reposição volêmica / 2ª coleta:');
-    campoLinha(doc, w, h, AXL0 + 0.012, 0.657, 0.290, 'Volêmica — horário:', textoEtapaHora(e('reposicao_volemica')), { tam: 6.6 });
-    campoLinha(doc, w, h, AXL0 + 0.012, 0.688, 0.290, 'Peso/Volume/Solução:', (function() { var v = e('reposicao_volemica'); return v && v.feita ? v.valor : ''; })(), { tam: 6.4 });
-    campoLinha(doc, w, h, AXL0 + 0.012, 0.719, 0.290, '2º lactato — resultado:', (function() { var v = e('segundo_lactato'); return v && v.feita ? v.valor + (v.unidade ? ' ' + v.unidade : '') : ''; })(), { tam: 6.4 });
-    campoLinha(doc, w, h, AXL0 + 0.012, 0.750, 0.290, 'Noradrenalina/acesso:', e('vasopressor') && e('vasopressor').feita ? 'Sim' : '', { tam: 6.4 });
+    // Reposição volêmica
+    val(120, 624, dataDe('reposicao_volemica'), { tam: 6 });
+    var repVol = e('reposicao_volemica');
+    val(155, 641, repVol && repVol.feita ? repVol.valor : '', { tam: 6, maxW: 115 });
 
-    seta(doc, w, h, CXM, 0.760, CXM, 0.776);
-    caixaFluxo(doc, w, h, CX0, 0.776, CX1, 0.822, ['Definir o destino do paciente para', 'UTI ou Unidade de Internação.']);
-    lin(doc, w, h, CX1, 0.799, AX0, 0.799, { tracejado: true });
-    caixaAnotacao(doc, w, h, AX0, 0.776, AX1, 0.938, 'Destino / Desfecho:');
-    campoLinha(doc, w, h, AX0 + 0.012, 0.812, 0.230, 'Destino:', vh('destino'), { tam: 6.6 });
-    campoLinha(doc, w, h, AX0 + 0.012, 0.836, 0.230, 'Hospital destino:', (function() { var hd = e('hospital_destino'); return hd && hd.feita ? hd.valor : ''; })(), { tam: 6.6 });
-    campoLinha(doc, w, h, AX0 + 0.012, 0.860, 0.230, 'Desfecho:', p.desfechoFinal ? (p.desfechoFinal + ' — ' + fmtDataCurta(p.desfechoFinalEm)) : '', { tam: 6.6 });
-    txt(doc, w, h, AX0 + 0.012, 0.886, 'Carimbo Médico: ____________', { tam: 6.4 });
+    // Coleta do segundo lactato
+    val(110, 461, dataDe('segundo_lactato'), { tam: 6 });
+    var lac2 = e('segundo_lactato');
+    val(118, 470, lac2 && lac2.feita ? (lac2.valor + (lac2.unidade ? ' ' + lac2.unidade : '')) : '', { tam: 6 });
 
-    seta(doc, w, h, CXM, 0.822, CXM, 0.848);
-    circ(doc, w, h, CXM, 0.862, 0.016, { preench: [0, 0, 0] });
+    // Destino (UTI / Internação) e hospital de destino
+    var destino = e('destino');
+    var vdestino = destino && destino.feita ? destino.valor : '';
+    if (vdestino === 'UTI') marcaX(319, 678);
+    else if (vdestino === 'Internação') marcaX(340, 678);
+    val(303, 686, dataDe('destino'), { tam: 6 });
+    var hospDestino = e('hospital_destino');
+    val(340, 694, hospDestino && hospDestino.feita ? hospDestino.valor : '', { tam: 6, maxW: 90 });
+
+    // Desfecho final do paciente (Alta / Óbito)
+    if (p.desfechoFinal === 'Alta Hospitalar') marcaX(327, 729);
+    else if (p.desfechoFinal === 'Óbito') marcaX(360, 729);
+    val(302, 739, p.desfechoFinal ? fmtDataHora(p.desfechoFinalEm) : '', { tam: 6 });
 }
 
 // ===== PÁGINAS — DOR TORÁCICA =====
@@ -1639,7 +1623,7 @@ function desenharAvcP3(doc, w, h, p, logo) {
 }
 
 var FORMULARIOS_PDF = {
-    sepse: { paginas: [{ w: 575, h: 842, desenhar: desenharSepseP1 }, { w: 595, h: 782, desenhar: desenharSepseP2 }] },
+    sepse: { paginas: [{ w: 595.3, h: 841.9, desenhar: desenharSepseP1, fundo: 'sepse-fundo-p1.png' }, { w: 595.3, h: 841.9, desenhar: desenharSepseP2, fundo: 'sepse-fundo-p2.png' }] },
     dor_toracica: { paginas: [{ w: 595, h: 830, desenhar: desenharDorP1 }, { w: 587, h: 842, desenhar: desenharDorP2 }] },
     avc: { paginas: [{ w: 571, h: 843, desenhar: desenharAvcP1 }, { w: 595, h: 834, desenhar: desenharAvcP2 }, { w: 575, h: 842, desenhar: desenharAvcP3 }] }
 };
@@ -1647,13 +1631,17 @@ var FORMULARIOS_PDF = {
 function gerarPDFProtocolo(p) {
     var form = FORMULARIOS_PDF[p.tipo];
     if (!form) return gerarPDFGenerico(p);
-    return carregarLogoBase64().then(function(logo) {
+    return Promise.all([
+        carregarLogoBase64(),
+        Promise.all(form.paginas.map(function(pg) { return pg.fundo ? carregarImagemFundoJPEG(pg.fundo) : Promise.resolve(null); }))
+    ]).then(function(res) {
+        var logo = res[0], fundos = res[1];
         var primeira = form.paginas[0];
         var doc = new window.jspdf.jsPDF({ unit: 'pt', format: [primeira.w, primeira.h] });
         form.paginas.forEach(function(pg, idx) {
             if (idx > 0) doc.addPage([pg.w, pg.h]);
             doc.setPage(idx + 1);
-            try { pg.desenhar(doc, pg.w, pg.h, p, logo); } catch (e) { console.error('Erro ao desenhar página ' + (idx + 1) + ':', e); }
+            try { pg.desenhar(doc, pg.w, pg.h, p, logo, fundos[idx]); } catch (e) { console.error('Erro ao desenhar página ' + (idx + 1) + ':', e); }
         });
 
         // Página final — linha do tempo digital completa (auditoria complementar ao formulário)
