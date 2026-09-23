@@ -18,15 +18,15 @@
   --accent-soft: rgba(232, 98, 46, 0.10);
   --hapvida-blue: #1534a5;
 
-  --tipo-sepse: #dc2626;
-  --tipo-sepse-bg: #fce8e8;
-  --tipo-sepse-border: #f7c8c8;
-  --tipo-dor_toracica: #b45309;
-  --tipo-dor_toracica-bg: #fdf0d8;
-  --tipo-dor_toracica-border: #fde3b8;
-  --tipo-avc: #7c3aed;
-  --tipo-avc-bg: #f0eafe;
-  --tipo-avc-border: #ddd0fb;
+  --tipo-sepse: #ca8a04;
+  --tipo-sepse-bg: #fef9c3;
+  --tipo-sepse-border: #fde047;
+  --tipo-dor_toracica: #dc2626;
+  --tipo-dor_toracica-bg: #fce8e8;
+  --tipo-dor_toracica-border: #f7c8c8;
+  --tipo-avc: #2563eb;
+  --tipo-avc-bg: #dbeafe;
+  --tipo-avc-border: #bfdbfe;
 
   --time-ok: #2563eb;
   --time-warn: #b45309;
