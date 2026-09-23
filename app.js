@@ -1962,13 +1962,13 @@ function renderizarPaginaRelatorio() {
     h += '</div>';
 
     h += '<div class="rel-header" style="margin-top:22px;"><h2>Pacientes do Período</h2><span>' + lista.length + ' registros</span></div>';
-    h += '<div class="rel-list">';
+    h += '<div class="rel-list-compact">';
     lista.slice().sort(function(a, b) { return new Date(b.criadoEm) - new Date(a.criadoEm); }).forEach(function(p) {
         var nome = (p.paciente && p.paciente.nome) ? p.paciente.nome : '(sem nome)';
         var sub = [(p.paciente && p.paciente.prontuario ? 'Pront. ' + p.paciente.prontuario : ''), (p.paciente && p.paciente.convenio), 'Abertura ' + fmtDataHora(p.criadoEm)].filter(Boolean).join(' · ');
         var statusTxt = p.status === 'finalizado' ? (p.desfecho || 'Finalizado') : ('Excluído — ' + (p.canceladoMotivo || '--'));
         var corStatus = p.status === 'finalizado' ? 'var(--success)' : 'var(--text-tertiary)';
-        h += '<div class="rel-list-row clicavel" onclick="abrirDetalheProtocolo(\'' + p.id + '\')">';
+        h += '<div class="rel-list-compact-row clicavel" onclick="abrirDetalheProtocolo(\'' + p.id + '\')">';
         h += '<div class="rel-list-main"><div class="rel-list-label">' + escHtml(nome) + '</div><div class="rel-list-sub">' + esc(sub) + '</div></div>';
         h += '<div class="rel-patient-status" style="color:' + corStatus + ';border-color:' + corStatus + ';">' + esc(statusTxt) + (p.desfechoFinal ? ' · ' + esc(p.desfechoFinal) : '') + '</div>';
         h += '</div>';
