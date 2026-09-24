@@ -604,7 +604,7 @@ function salvarNovoProtocolo() {
     if (!getEstacaoAtual()) { alert('Selecione a estação de trabalho antes de continuar.'); abrirSeletorEstacao(); return; }
     var tipoInfo = TIPOS[tipo];
     var etapas = tipoInfo.etapas.map(function(e) {
-        return { key: e.key, label: e.label, estacao: e.estacao, tipoCampo: e.tipoCampo, unidade: e.unidade || null, opcoes: e.opcoes || null, obrigatoria: e.obrigatoria, metaMinutos: e.metaMinutos != null ? e.metaMinutos : null, feita: false, valor: null, horario: null, feitaPor: null, feitaEm: null };
+        return { key: e.key, label: e.label, estacao: e.estacao, tipoCampo: e.tipoCampo, unidade: e.unidade || null, opcoes: e.opcoes || null, obrigatoria: e.obrigatoria, metaMinutos: e.metaMinutos != null ? e.metaMinutos : null, rotuloPositivo: e.rotuloPositivo || null, rotuloNegativo: e.rotuloNegativo || null, motivoDescarte: e.motivoDescarte || null, opcaoOutro: e.opcaoOutro || null, placeholder: e.placeholder || null, feita: false, valor: null, horario: null, feitaPor: null, feitaEm: null };
     });
     var agora = agoraISO();
     var doc = {
@@ -662,7 +662,7 @@ function renderDetalheProtocolo(id) {
         h += '<div class="checklist">';
         (p.etapas || []).forEach(function(e, idx) {
             h += renderEtapaItem(p, e, idx);
-            if (e.key === 'disfuncao_pos_pacote' && e.feita && e.valor === 'Confirmada') {
+            if (e.key === 'disfuncao_pos_pacote' && e.feita && e.valor === (e.rotuloPositivo || 'Confirmada')) {
                 h += '<div style="background:var(--tipo-sepse-bg, #fef9c3);border:1px solid var(--tipo-sepse-border, #fde047);border-radius:var(--radius-md);padding:12px 14px;font-size:13px;line-height:1.5;">' +
                     '<b>Conduta recomendada:</b><ul style="margin:6px 0 0;padding-left:18px;">' +
                     '<li>Realizar reposição volêmica com 30 mL/kg de cristaloides e ajustar conforme janelas de perfusão (diurese, débito urinário e tempo de enchimento capilar).</li>' +
