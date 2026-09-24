@@ -323,7 +323,7 @@ var TIPOS = {
             { key: 'segundo_lactato_coleta', label: 'Coleta do segundo lactato (pós-ressuscitação volêmica)', estacao: 'laboratorio', tipoCampo: 'horario', obrigatoria: false },
             { key: 'segundo_lactato', label: 'Resultado do segundo lactato', estacao: 'laboratorio', tipoCampo: 'valor_horario', unidade: 'mg/dL', obrigatoria: false, placeholder: 'Valor do lactato (mg/dL)' },
             { key: 'vasopressor', label: 'Noradrenalina iniciada (se PAM <65mmHg após volume) e acesso central providenciado', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false },
-            { key: 'destino', label: 'Destino definido', estacao: 'emerg_medico', tipoCampo: 'select_horario', obrigatoria: true, opcoes: ['UTI', 'Internação'] }
+            { key: 'destino', label: 'Destino definido', estacao: 'emerg_medico', tipoCampo: 'select_horario', obrigatoria: true, opcoes: ['UTI', 'Internação em Enfermaria'] }
         ]
     },
     dor_toracica: {
@@ -1392,7 +1392,7 @@ function desenharSepseP2(doc, w, h, p, logo, fundo) {
     var destino = e('destino');
     var vdestino = destino && destino.feita ? destino.valor : '';
     if (vdestino === 'UTI') marcaX(319, 678);
-    else if (vdestino === 'Internação') marcaX(340, 678);
+    else if (vdestino === 'Internação em Enfermaria') marcaX(340, 678);
     val(303, 686, dataDe('destino'), { tam: 6 });
     val(340, 694, 'Hospital Paulo Sacramento', { tam: 6, maxW: 90 });
 
