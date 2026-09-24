@@ -224,7 +224,7 @@ function renderAdmin() {
         '<div class="rel-header" style="margin-top:26px;"><h2>Antibióticos do Protocolo de Sepse</h2><span id="admin-atb-count"></span></div>' +
         '<div class="field-row" style="margin-top:10px;"><div class="field"><label>Novo antibiótico</label><input type="text" id="admin-atb-novo" placeholder="ex: Ceftriaxona 1g EV"></div></div>' +
         '<div class="etapa-valor-row" style="margin-top:6px;justify-content:flex-end;"><button class="etapa-btn-mini primary" onclick="adicionarAntibiotico()">Adicionar</button></div>' +
-        '<div class="rel-list" id="admin-atb-lista" style="margin-top:14px;"></div>' +
+        '<div class="rel-list-compact" id="admin-atb-lista" style="margin-top:14px;"></div>' +
         '</div>';
     carregarProfissionais();
     carregarAntibioticos().then(renderizarPaginaAdminAntibioticos);
@@ -331,17 +331,11 @@ function renderizarPaginaAdminAntibioticos() {
     var h = '';
     listaAntibioticosAdmin.forEach(function(a) {
         var desativado = a.ativo === false;
-        h += '<div class="rel-list-row admin-row">';
-        h += '<div class="rel-list-main">';
-        h += '<div class="admin-edit-fields">';
-        h += '<input type="text" class="admin-input" id="admin-atb-nome-' + a.id + '" value="' + esc(a.nome || '') + '" placeholder="Nome do antibiótico">';
+        h += '<div class="admin-atb-row' + (desativado ? ' desativado' : '') + '">';
+        h += '<input type="text" class="admin-input admin-atb-input" id="admin-atb-nome-' + a.id + '" value="' + esc(a.nome || '') + '" placeholder="Nome do antibiótico">';
+        h += '<span class="admin-atb-status">' + (desativado ? 'Desativado' : 'Ativo') + '</span>';
         h += '<button class="etapa-btn-mini primary" onclick="salvarEdicaoAntibiotico(\'' + a.id + '\')">Salvar</button>';
-        h += '</div>';
-        h += '<div class="rel-list-sub">' + (desativado ? '<b style="color:var(--danger);">Desativado</b>' : 'Ativo') + '</div>';
-        h += '</div>';
-        h += '<div class="desfecho-actions">';
         h += '<button class="etapa-btn-mini' + (desativado ? ' success' : ' danger') + '" onclick="alternarAtivoAntibiotico(\'' + a.id + '\', ' + desativado + ')">' + (desativado ? 'Reativar' : 'Desativar') + '</button>';
-        h += '</div>';
         h += '</div>';
     });
     el.innerHTML = h;
