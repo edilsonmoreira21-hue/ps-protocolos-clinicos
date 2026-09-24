@@ -404,7 +404,7 @@ var TIPOS = {
             { key: 'queixa', label: 'Queixa do paciente', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true },
             { key: 'horario_inicio_dor', label: 'Horário de início da dor', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true },
             { key: 'eva', label: 'Escala de dor (EVA)', estacao: 'emerg_medico', tipoCampo: 'escala_dor', obrigatoria: true, metaMinutos: 10 },
-            { key: 'procedencia', label: 'Procedência do paciente', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true },
+            { key: 'procedencia', label: 'Procedência do paciente', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true, placeholder: 'ex.: Demanda Espontânea' },
             { key: 'atendimento_medico', label: 'Atendimento médico', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 10 },
             { key: 'ecg_solicitado', label: 'ECG solicitado', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true },
             { key: 'ecg', label: 'ECG realizado', estacao: 'emerg_enf', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 10 },
@@ -821,7 +821,7 @@ function renderEtapaItem(p, e, idx) {
             h += '<div class="etapa-valor-row"><input type="datetime-local" id="horario-' + idx + '" value="' + getLocalISO() + '">';
             h += '<button class="etapa-btn-mini primary" onclick="salvarEtapaReposicao(\'' + p.id + '\',' + idx + ')">Registrar</button></div>';
         } else if (e.tipoCampo === 'valor') {
-            h += '<div class="etapa-valor-row"><input type="text" id="valor-' + idx + '" placeholder="' + (e.unidade ? 'Valor (' + esc(e.unidade) + ')' : 'Valor') + '">';
+            h += '<div class="etapa-valor-row"><input type="text" id="valor-' + idx + '" placeholder="' + esc(e.placeholder || (e.unidade ? 'Valor (' + e.unidade + ')' : 'Valor')) + '">';
             h += '<button class="etapa-btn-mini primary" onclick="salvarEtapaValor(\'' + p.id + '\',' + idx + ')">Salvar</button></div>';
         } else if (e.tipoCampo === 'escala_dor') {
             h += '<div class="etapa-eva-row">';
