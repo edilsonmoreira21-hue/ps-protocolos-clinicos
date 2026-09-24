@@ -1337,6 +1337,8 @@ function desenharSepseP2(doc, w, h, p, logo, fundo) {
 
     // Avaliação médica
     val(437, 179, dataDe('avaliacao_medica'), { tam: 6.5, maxW: 115 });
+    var avMedica = e('avaliacao_medica');
+    val(485, 189, avMedica && avMedica.feita ? nomeSemCargo(avMedica.feitaPor) : '', { tam: 5.5, maxW: 65 });
 
     // Exclusão 1 — suspeita de infecção descartada
     if (p.status === 'cancelado' && (TIPOS.sepse.motivosExclusao || [])[0] === p.canceladoMotivo) {
