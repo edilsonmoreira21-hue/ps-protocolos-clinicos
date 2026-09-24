@@ -365,7 +365,6 @@ var TIPOS = {
 var DESFECHOS = ['Internação UTI', 'Internação (Enfermaria/Unidade de Internação)', 'Alta', 'Transferência externa', 'Óbito', 'Outro'];
 var DESFECHOS_INTERNACAO = ['Internação UTI', 'Internação (Enfermaria/Unidade de Internação)'];
 function precisaDesfechoFinal(p) { return p.status === 'finalizado' && DESFECHOS_INTERNACAO.indexOf(p.desfecho) !== -1; }
-var CV_OPTIONS = ['PROPRIO', 'EXTERNO', 'PARTICULAR'];
 
 function iconeTipo(tipo) {
     if (tipo === 'sepse') return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M12 22v-6M4.9 4.9l4.2 4.2M14.9 14.9l4.2 4.2M2 12h6M16 12h6M4.9 19.1l4.2-4.2M14.9 9.1l4.2-4.2"/></svg>';
@@ -577,11 +576,8 @@ function selecionarTipoNovoProtocolo(tipo) {
     var h = '<div class="field"><label>Nome completo do paciente</label><input type="text" id="np-nome" placeholder="Nome do paciente"></div>';
     h += '<div class="field"><label>Data de nascimento</label><input type="date" id="np-nascimento"></div>';
     h += '<div class="field-row">';
-    h += '<div class="field"><label>Idade</label><input type="number" id="np-idade" min="0" max="130"></div>';
     h += '<div class="field"><label>Sexo</label><select id="np-sexo"><option value="M">Masculino</option><option value="F">Feminino</option></select></div>';
-    h += '</div><div class="field-row">';
     h += '<div class="field"><label>Prontuário</label><input type="text" id="np-prontuario"></div>';
-    h += '<div class="field"><label>Convênio</label><select id="np-convenio">' + CV_OPTIONS.map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('') + '</select></div>';
     h += '</div>';
     h += '<div class="field"><label>Leito/Sala atual (opcional)</label><input type="text" id="np-leito"></div>';
     h += '<div class="field"><label>' + esc(tipoInfo.labelReferencia) + '</label><input type="datetime-local" id="np-referencia" value="' + getLocalISO() + '"></div>';
@@ -611,10 +607,8 @@ function salvarNovoProtocolo() {
         paciente: {
             nome: nome,
             dataNascimento: g('np-nascimento').value || '',
-            idade: g('np-idade').value || '',
             sexo: g('np-sexo').value,
             prontuario: g('np-prontuario').value || '',
-            convenio: g('np-convenio').value,
             leito: g('np-leito').value || ''
         },
         status: 'ativo',
