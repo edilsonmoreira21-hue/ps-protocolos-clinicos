@@ -753,7 +753,7 @@ function renderEtapaItem(p, e, idx) {
             h += '<button class="etapa-btn-mini danger" onclick="descartarEtapaDecisao(\'' + p.id + '\',' + idx + ')">' + escHtml(e.rotuloNegativo || 'Descartada') + '</button></div>';
         } else if (e.tipoCampo === 'select') {
             var opcaoOutro = e.opcaoOutro || 'Outro';
-            h += '<div class="etapa-valor-row"><select id="select-' + idx + '" onchange="document.getElementById(\'outro-wrap-' + idx + '\').style.display = this.value===' + JSON.stringify(opcaoOutro) + '?\'flex\':\'none\';">';
+            h += '<div class="etapa-valor-row"><select id="select-' + idx + '" data-outro="' + esc(opcaoOutro) + '" onchange="alternarCampoOutro(' + idx + ')">';
             h += '<option value="" selected disabled>Selecione...</option>';
             (e.opcoes || []).forEach(function(op) { h += '<option value="' + esc(op) + '">' + escHtml(op) + '</option>'; });
             h += '</select><button class="etapa-btn-mini primary" onclick="salvarEtapaSelect(\'' + p.id + '\',' + idx + ')">Salvar</button></div>';
@@ -865,6 +865,10 @@ function descartarEtapaDecisao(protocoloId, idx) {
     db.collection('protocolos').doc(protocoloId).update({ etapas: etapas, status: 'cancelado', canceladoMotivo: motivo, finalizadoEm: agora, finalizadoPor: nomeDe(usuarioAtual), timeline: timeline })
         .then(function() { mostrarToast('Protocolo encerrado', e.label + ': ' + rotulo); })
         .catch(function(err) { alert('Erro ao atualizar: ' + err.message); });
+}
+function alternarCampoOutro(idx) {
+    var select = g('select-' + idx), wrap = g('outro-wrap-' + idx);
+    if (select && wrap) wrap.style.display = select.value === select.dataset.outro ? 'flex' : 'none';
 }
 function salvarEtapaSelect(protocoloId, idx) {
     var select = g('select-' + idx); var valor = select.value;
@@ -1394,99 +1398,106 @@ function desenharSepseP2(doc, w, h, p, logo, fundo) {
 }
 
 // ===== PÁGINAS — DOR TORÁCICA =====
-function desenharDorP1(doc, w, h, p, logo) {
+function desenharDorP1(doc, w, h, p, logo, fundo) {
     var pac = p.paciente || {};
     var e = function(k) { return etapaPorChave(p, k); };
-    if (logo) { try { doc.addImage(logo, 'PNG', _fx(w, 0.06), _fy(h, 0.018), _fx(w, 0.20), _fy(h, 0.045)); } catch (e) {} }
-    txt(doc, w, h, 0.5, 0.070, 'Ficha de Monitoramento de Dor Torácica', { tam: 15, negrito: true, align: 'center' });
+    if (fundo) { try { doc.addImage(fundo, 'JPEG', 0, 0, w, h); } catch (e) {} }
+    else if (logo) { try { doc.addImage(logo, 'PNG', _fx(w, 0.06), _fy(h, 0.018), _fx(w, 0.20), _fy(h, 0.045)); } catch (e) {} }
 
-    ret(doc, w, h, 0.06, 0.098, 0.94, 0.170, { esp: 1 });
-    campoLinha(doc, w, h, 0.075, 0.118, 0.470, 'Nome Completo:', pac.nome, { tam: 8 });
-    campoLinha(doc, w, h, 0.580, 0.118, 0.340, 'Data Nascimento:', fmtDataNascimento(pac.dataNascimento), { tam: 8 });
-    lin(doc, w, h, 0.06, 0.135, 0.94, 0.135, { esp: 0.6 });
-    campoLinha(doc, w, h, 0.075, 0.155, 0.230, 'Atendimento:', pac.prontuario, { tam: 8 });
+    function val(xpt, ypt, s, o) {
+        if (s == null || s === '') return;
+        var opts = Object.assign({ tam: 7.5, cor: COR_TINTA }, o || {});
+        if (opts.maxW) opts.maxW = opts.maxW / w;
+        txt(doc, w, h, xpt / w, ypt / h, String(s), opts);
+    }
+    function marcaX(xpt, ypt) { txt(doc, w, h, xpt / w, ypt / h, 'X', { tam: 8, negrito: true, cor: COR_TINTA, align: 'center' }); }
+    function diaMesAno(iso) {
+        if (!iso) return null;
+        var d = new Date(iso);
+        return [pad2(d.getDate()), pad2(d.getMonth() + 1), String(d.getFullYear())];
+    }
+    function horaMin(iso) {
+        if (!iso) return null;
+        var d = new Date(iso);
+        return [pad2(d.getHours()), pad2(d.getMinutes())];
+    }
+    function pad2(n) { return String(n).padStart(2, '0'); }
+    function valData(iso, xDia, xMes, xAno, ypt) {
+        var partes = diaMesAno(iso);
+        if (!partes) return;
+        val(xDia, ypt, partes[0], { tam: 7, align: 'center' });
+        val(xMes, ypt, partes[1], { tam: 7, align: 'center' });
+        val(xAno, ypt, partes[2], { tam: 6.5, align: 'center' });
+    }
+    function valHora(iso, xH, xM, ypt, o) {
+        var partes = horaMin(iso);
+        if (!partes) return;
+        val(xH, ypt, partes[0], Object.assign({ tam: 6.8, align: 'center' }, o || {}));
+        val(xM, ypt, partes[1], Object.assign({ tam: 6.8, align: 'center' }, o || {}));
+    }
+    function horarioDe(k) { var et = e(k); return et && et.feita ? (et.horario || et.feitaEm) : null; }
 
-    ret(doc, w, h, 0.06, 0.178, 0.94, 0.250, { esp: 1 });
-    campoLinha(doc, w, h, 0.075, 0.198, 0.230, 'Data do atendimento:', fmtDataCurta(p.criadoEm), { tam: 7.6 });
-    campoLinha(doc, w, h, 0.365, 0.198, 0.230, 'Horário da abertura:', fmtHoraCurta(p.criadoEm), { tam: 7.6 });
-    txt(doc, w, h, 0.660, 0.198, 'Profissional responsável pela abertura:', { tam: 7.2 });
-    txt(doc, w, h, 0.660, 0.225, (p.criadoPor ? nomeDe(p.criadoPor) : ''), { tam: 7.6, cor: COR_TINTA });
+    // Identificação do paciente
+    val(131, 149, pac.nome, { tam: 8, maxW: 380 });
+    valData(pac.dataNascimento ? pac.dataNascimento + 'T12:00:00' : null, 441, 470, 498, 149);
+    val(413, 174, pac.prontuario, { tam: 8, maxW: 140 });
 
-    ret(doc, w, h, 0.06, 0.258, 0.94, 0.322, { esp: 1 });
-    campoLinha(doc, w, h, 0.075, 0.278, 0.860, 'Queixa:', (function() { var q = e('queixa'); return q && q.feita ? q.valor : ''; })(), { tam: 7.6 });
+    // Abertura do atendimento
+    valData(p.criadoEm, 96, 125, 153, 207);
+    valHora(p.criadoEm, 275, 304, 207, { tam: 7 });
+    val(359, 209, p.criadoPor ? nomeDe(p.criadoPor) : '', { tam: 7.2, maxW: 155 });
+
+    // Queixa e escala de dor
+    val(91, 234, (function() { var q = e('queixa'); return q && q.feita ? q.valor : ''; })(), { tam: 7.6, maxW: 460 });
+    valHora(p.horaReferencia, 184, 213, 253);
     var eva = e('eva');
-    campoLinha(doc, w, h, 0.075, 0.305, 0.400, 'Horário de INÍCIO da DOR:', fmtHoraCurta(p.horaReferencia), { tam: 7.6 });
-    campoLinha(doc, w, h, 0.580, 0.305, 0.340, 'Escala de dor (0-10):', eva && eva.feita ? eva.valor : '', { tam: 7.6 });
+    val(387, 253, eva && eva.feita ? eva.valor : '', { tam: 7.6, maxW: 25 });
 
-    ret(doc, w, h, 0.06, 0.330, 0.94, 0.400, { esp: 1 });
-    campoLinha(doc, w, h, 0.075, 0.350, 0.860, 'Procedência do paciente:', (function() { var pr = e('procedencia'); return pr && pr.feita ? pr.valor : ''; })(), { tam: 7.6 });
-    campoLinha(doc, w, h, 0.075, 0.378, 0.260, 'Horário atendimento médico:', textoEtapaHora(e('atendimento_medico')), { tam: 7.2 });
-    campoLinha(doc, w, h, 0.400, 0.378, 0.260, 'Horário solicitação ECG:', textoEtapaHora(e('ecg_solicitado')), { tam: 7.2 });
-    campoLinha(doc, w, h, 0.700, 0.378, 0.240, 'Horário realização ECG:', textoEtapaHora(e('ecg')), { tam: 7.2 });
+    // Procedência e horários de atendimento/ECG
+    val(166, 278, (function() { var pr = e('procedencia'); return pr && pr.feita ? pr.valor : ''; })(), { tam: 7.6, maxW: 390 });
+    valHora(horarioDe('atendimento_medico'), 113, 140, 311);
+    valHora(horarioDe('ecg_solicitado'), 276, 303, 311);
+    valHora(horarioDe('ecg'), 439, 468, 311);
 
+    // Avaliação do ECG
     var avEcg = e('avaliacao_ecg');
     var mEcg = textoMarcado(null, avEcg && avEcg.valor);
-    var ecgOp = { normal: 'ECG normal', supra: 'Supra de ST ou BRE novo ou provavelmente novo', invT: 'Inversão ou simetria de onda T', infra: 'Infra de ST (>0,5mm)', arrit: 'Arritmias ameaçadoras à vida', altST: 'Alterações dinâmicas do ST', ondaQ: 'Onda Q patológica' };
-    tabelaCriterios(doc, w, h, 0.06, 0.408, 0.94, 0.530, 'Avaliação do ECG', [
-        { itens: [{ label: 'ECG normal', marcado: mEcg(ecgOp.normal) }, { label: 'Supra de ST ou BRE novo ou provavelmente novo', marcado: mEcg(ecgOp.supra) }, { label: 'Inversão ou simetria de onda T', marcado: mEcg(ecgOp.invT) }, { label: 'Infra de ST (>0,5mm)', marcado: mEcg(ecgOp.infra) }] },
-        { itens: [{ label: 'Arritmias ameaçadoras à vida', marcado: mEcg(ecgOp.arrit) }, { label: 'Alterações dinâmicas do ST', marcado: mEcg(ecgOp.altST) }, { label: 'Onda Q patológica', marcado: mEcg(ecgOp.ondaQ) }] }
-    ], null);
+    var ecgPos = {
+        'ECG normal': [73, 352], 'Arritmias ameaçadoras à vida': [345, 352],
+        'Supra de ST ou BRE novo ou provavelmente novo': [73, 371], 'Alterações dinâmicas do ST': [345, 371],
+        'Inversão ou simetria de onda T': [73, 390], 'Onda Q patológica': [345, 390],
+        'Infra de ST (>0,5mm)': [73, 409]
+    };
+    Object.keys(ecgPos).forEach(function(op) { if (mEcg(op)) marcaX(ecgPos[op][0], ecgPos[op][1]); });
 
-    ret(doc, w, h, 0.06, 0.538, 0.94, 0.595, { esp: 1 });
-    campoLinha(doc, w, h, 0.075, 0.558, 0.300, 'Horário do Laudo TeleECG:', textoEtapaHora(e('laudo_teleecg')), { tam: 7.2 });
-    campoLinha(doc, w, h, 0.390, 0.558, 0.280, 'Solicitação TeleCardio:', textoEtapaHora(e('telecardio_solicitacao')), { tam: 7.2 });
-    campoLinha(doc, w, h, 0.685, 0.558, 0.245, 'Resposta TeleCardio:', textoEtapaHora(e('telecardio_resposta')), { tam: 7 });
+    // TeleECG / TeleCardio
+    valHora(horarioDe('laudo_teleecg'), 114, 142, 452);
+    valHora(horarioDe('telecardio_solicitacao'), 232, 260, 446);
+    valHora(horarioDe('telecardio_resposta'), 446, 470, 446, { tam: 6.5 });
 
+    // Diagnóstico
     var diag = e('diagnostico');
-    var vdiag = (diag && diag.feita ? diag.valor : '').toLowerCase();
-    ret(doc, w, h, 0.06, 0.603, 0.94, 0.655, { esp: 1 });
-    txt(doc, w, h, 0.075, 0.620, 'Diagnóstico:', { tam: 8, negrito: true });
-    var diagChecks = [{ x: 0.185, label: 'IAM com Supra ST', hit: vdiag.indexOf('supra') !== -1 && vdiag.indexOf('sem') === -1 },
-        { x: 0.430, label: 'IAM sem Supra ST', hit: vdiag.indexOf('sem supra') !== -1 },
-        { x: 0.680, label: 'Angina Instável', hit: vdiag.indexOf('angina') !== -1 }];
-    diagChecks.forEach(function(c) {
-        ret(doc, w, h, c.x, 0.613, c.x + 0.016, 0.613 + 0.016 * (w / h), { esp: 0.8 });
-        if (c.hit) txt(doc, w, h, c.x + 0.002, 0.613 + 0.016 * (w / h) * 0.82, 'X', { tam: 7.5, negrito: true, cor: COR_TINTA });
-        txt(doc, w, h, c.x + 0.022, 0.625, c.label, { tam: 7.4 });
-    });
-    var diagOutros = diag && diag.feita && !diagChecks.some(function(c) { return c.hit; });
-    ret(doc, w, h, 0.185, 0.637, 0.201, 0.637 + 0.016 * (w / h), { esp: 0.8 });
-    if (diagOutros) txt(doc, w, h, 0.187, 0.637 + 0.016 * (w / h) * 0.82, 'X', { tam: 7.5, negrito: true, cor: COR_TINTA });
-    campoLinha(doc, w, h, 0.222, 0.649, 0.500, 'Outros:', diagOutros ? diag.valor : '', { tam: 7.4 });
+    var vdiag = diag && diag.feita ? diag.valor : '';
+    var diagPos = { 'IAM com Supra ST': [121, 469], 'IAM sem Supra ST': [263, 469], 'Angina Instável': [410, 469] };
+    if (vdiag && diagPos[vdiag]) marcaX(diagPos[vdiag][0], diagPos[vdiag][1]);
+    else if (vdiag) { marcaX(121, 481); val(166, 481, vdiag, { tam: 7.4, maxW: 320 }); }
 
+    // Sinais de alerta e gravidade
     var alerta = e('sinais_alerta'), alertaOp = opcoesDaEtapa('dor_toracica', 'sinais_alerta');
     var mAlerta = textoMarcado(null, alerta && alerta.valor);
-    tabelaCriterios(doc, w, h, 0.06, 0.663, 0.94, 0.760, 'Sinais de Alerta e Gravidade', [
-        { itens: alertaOp.map(function(op) { return { label: op, marcado: mAlerta(op) }; }) }
-    ], null);
+    var alertaY = [518, 535, 551, 568, 584, 601];
+    alertaOp.forEach(function(op, i) { if (mAlerta(op)) marcaX(61, alertaY[i]); });
 
+    // Desfecho — Hemodinâmica (CATE) ou Fibrinólise, conforme o desfecho registrado
     var desf = e('desfecho_dor');
     var vdesf = desf && desf.feita ? desf.valor : '';
-    ret(doc, w, h, 0.06, 0.768, 0.94, 0.945, { esp: 1 });
-    txt(doc, w, h, 0.075, 0.783, 'Desfecho:', { tam: 8.5, negrito: true });
-    function checkDesfecho(label, x, y) {
-        var hit = vdesf === label;
-        ret(doc, w, h, x, y, x + 0.014, y + 0.014 * (w / h), { esp: 0.8 });
-        if (hit) txt(doc, w, h, x + 0.002, y + 0.014 * (w / h) * 0.82, 'X', { tam: 7, negrito: true, cor: COR_TINTA });
-        txt(doc, w, h, x + 0.020, y + 0.010, label, { tam: 6.8 });
-    }
-    checkDesfecho('CATE imediato', 0.075, 0.800);
-    checkDesfecho('CATE em 24 horas', 0.075, 0.822);
-    checkDesfecho('CATE em 72 horas', 0.075, 0.844);
-    checkDesfecho('Trombólise', 0.500, 0.800);
-    checkDesfecho('Internação para estratificação de risco não invasiva', 0.500, 0.822);
-    checkDesfecho('Alta para seguimento ambulatorial', 0.500, 0.844);
-    if (vdesf === 'CATE imediato') {
-        campoLinha(doc, w, h, 0.075, 0.876, 0.400, 'Solicitação do CATE:', fmtDataHora(desf.cateSolicitacao), { tam: 7.2 });
-        campoLinha(doc, w, h, 0.500, 0.876, 0.400, 'Realização do CATE:', fmtDataHora(desf.cateRealizacao), { tam: 7.2 });
+    if (vdesf.indexOf('CATE') !== -1) {
+        valData(desf.cateSolicitacao, 174, 198, 222, 639);
+        valHora(desf.cateSolicitacao, 167, 199, 655);
+        valHora(desf.cateRealizacao, 197, 223, 689);
     } else if (vdesf === 'Trombólise') {
-        campoLinha(doc, w, h, 0.075, 0.876, 0.400, 'Início da trombólise:', fmtDataHora(desf.tromboliseInicio), { tam: 7.2 });
+        valData(desf.tromboliseInicio, 460, 484, 508, 685);
     }
-    txt(doc, w, h, 0.075, 0.912, 'Registrado por: ' + (desf && desf.feita ? desf.feitaPor : '____________________'), { tam: 6.8, cor: (desf && desf.feita) ? COR_TINTA : [0, 0, 0] });
-    txt(doc, w, h, 0.075, 0.930, 'Carimbo Médico: ____________________', { tam: 6.8 });
-
-    txt(doc, w, h, 0.06, 0.965, 'Profissionais médicos: ________________________', { tam: 7.4 });
-    txt(doc, w, h, 0.50, 0.965, 'Profissional Enfermeiro: ________________________', { tam: 7.4 });
 }
 function desenharDorP2(doc, w, h, p, logo) {
     if (logo) { try { doc.addImage(logo, 'PNG', _fx(w, 0.38), _fy(h, 0.06), _fx(w, 0.24), _fy(h, 0.052)); } catch (e) {} }
@@ -1685,7 +1696,7 @@ function desenharAvcP3(doc, w, h, p, logo) {
 
 var FORMULARIOS_PDF = {
     sepse: { paginas: [{ w: 595.3, h: 841.9, desenhar: desenharSepseP1, fundo: 'sepse-fundo-p1.png' }, { w: 595.3, h: 841.9, desenhar: desenharSepseP2, fundo: 'sepse-fundo-p2.png' }] },
-    dor_toracica: { paginas: [{ w: 595, h: 830, desenhar: desenharDorP1 }, { w: 587, h: 842, desenhar: desenharDorP2 }] },
+    dor_toracica: { paginas: [{ w: 595.32, h: 841.92, desenhar: desenharDorP1, fundo: 'dor-fundo-p1.png' }, { w: 587, h: 842, desenhar: desenharDorP2 }] },
     avc: { paginas: [{ w: 571, h: 843, desenhar: desenharAvcP1 }, { w: 595, h: 834, desenhar: desenharAvcP2 }, { w: 575, h: 842, desenhar: desenharAvcP3 }] }
 };
 
