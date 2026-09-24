@@ -401,15 +401,16 @@ var TIPOS = {
         labelReferencia: 'Hora da abertura do atendimento',
         motivosExclusao: ['Diagnóstico não cardiológico confirmado', 'Dor resolvida sem alterações de ECG/marcadores', 'Outro'],
         etapas: [
-            { key: 'queixa', label: 'Queixa do paciente', estacao: 'emerg_enf', tipoCampo: 'valor', obrigatoria: true },
-            { key: 'eva', label: 'Escala de dor (0-10)', estacao: 'emerg_enf', tipoCampo: 'valor', obrigatoria: true, metaMinutos: 10 },
-            { key: 'procedencia', label: 'Procedência do paciente', estacao: 'emerg_enf', tipoCampo: 'select', obrigatoria: true, opcoes: ['Demanda espontânea', 'Outra instituição de saúde'] },
+            { key: 'queixa', label: 'Queixa do paciente', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true },
+            { key: 'horario_inicio_dor', label: 'Horário de início da dor', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true },
+            { key: 'eva', label: 'Escala de dor (EVA)', estacao: 'emerg_medico', tipoCampo: 'escala_dor', obrigatoria: true, metaMinutos: 10 },
+            { key: 'procedencia', label: 'Procedência do paciente', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: true },
             { key: 'atendimento_medico', label: 'Atendimento médico', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 10 },
             { key: 'ecg_solicitado', label: 'ECG solicitado', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true },
             { key: 'ecg', label: 'ECG realizado', estacao: 'emerg_enf', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 10 },
             { key: 'avaliacao_ecg', label: 'Avaliação do ECG', estacao: 'emerg_medico', tipoCampo: 'multi', obrigatoria: true, opcoes: ['ECG normal', 'Supra de ST ou BRE novo ou provavelmente novo', 'Inversão ou simetria de onda T', 'Infra de ST (>0,5mm)', 'Arritmias ameaçadoras à vida', 'Alterações dinâmicas do ST', 'Onda Q patológica'] },
-            { key: 'laudo_teleecg', label: 'Laudo do TeleECG', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false, metaMinutos: 15 },
             { key: 'troponina', label: 'Coleta da primeira troponina', estacao: 'laboratorio', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 30 },
+            { key: 'laudo_teleecg', label: 'Laudo do TeleECG', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false, metaMinutos: 15 },
             { key: 'telecardio_solicitacao', label: 'Solicitação do TeleCardio', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false },
             { key: 'telecardio_resposta', label: 'Resposta (conduta) do TeleCardio', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false, metaMinutos: 30 },
             { key: 'diagnostico', label: 'Diagnóstico', estacao: 'emerg_medico', tipoCampo: 'select', obrigatoria: true, opcoes: ['IAM com Supra ST', 'IAM sem Supra ST', 'Angina Instável', 'Outros'], opcaoOutro: 'Outros' },
@@ -822,6 +823,12 @@ function renderEtapaItem(p, e, idx) {
         } else if (e.tipoCampo === 'valor') {
             h += '<div class="etapa-valor-row"><input type="text" id="valor-' + idx + '" placeholder="' + (e.unidade ? 'Valor (' + esc(e.unidade) + ')' : 'Valor') + '">';
             h += '<button class="etapa-btn-mini primary" onclick="salvarEtapaValor(\'' + p.id + '\',' + idx + ')">Salvar</button></div>';
+        } else if (e.tipoCampo === 'escala_dor') {
+            h += '<div class="etapa-eva-row">';
+            for (var evaN = 0; evaN <= 10; evaN++) {
+                h += '<button type="button" class="eva-circle" onclick="salvarEtapaEscalaDor(\'' + p.id + '\',' + idx + ',' + evaN + ')">' + evaN + '</button>';
+            }
+            h += '</div>';
         } else if (e.tipoCampo === 'horario') {
             h += '<div class="etapa-valor-row"><input type="datetime-local" id="horario-' + idx + '" value="' + getLocalISO() + '">';
             h += '<button class="etapa-btn-mini primary" onclick="salvarEtapaHorario(\'' + p.id + '\',' + idx + ')">Registrar</button></div>';
@@ -873,6 +880,8 @@ function renderEtapaItem(p, e, idx) {
             infoValor = e.valor + ' — Início ' + fmtDataHora(e.tromboliseInicio);
         } else if (e.tipoCampo === 'reposicao') {
             infoValor = 'Peso ' + e.peso + 'Kg, Volume ' + e.volume + ', Solução ' + e.solucao + ' — ' + fmtDataHora(e.horario);
+        } else if (e.tipoCampo === 'escala_dor') {
+            infoValor = 'EVA ' + e.valor + '/10';
         } else {
             infoValor = e.valor && e.horario ? (e.valor + ' — ' + fmtDataHora(e.horario)) : e.valor ? (e.valor + (e.unidade ? ' ' + e.unidade : '')) : (e.horario ? fmtDataHora(e.horario) : 'Concluído');
         }
@@ -902,6 +911,10 @@ function salvarEtapaValor(protocoloId, idx) {
     if (!valor) { input.focus(); return; }
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
     atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, feitaEm: agoraISO(), feitaPor: nomeDe(usuarioAtual) }, e.label + ': ' + valor + (e.unidade ? ' ' + e.unidade : ''));
+}
+function salvarEtapaEscalaDor(protocoloId, idx, valor) {
+    var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
+    atualizarEtapa(protocoloId, idx, { feita: true, valor: String(valor), feitaEm: agoraISO(), feitaPor: nomeDe(usuarioAtual) }, e.label + ': ' + valor + '/10');
 }
 function salvarEtapaReposicao(protocoloId, idx) {
     var pesoInput = g('peso-' + idx), volumeInput = g('volume-' + idx), solucaoInput = g('solucao-' + idx), horarioInput = g('horario-' + idx);
@@ -1554,7 +1567,7 @@ function desenharDorP1(doc, w, h, p, logo, fundo) {
 
     // Queixa e escala de dor
     val(91, 234, (function() { var q = e('queixa'); return q && q.feita ? q.valor : ''; })(), { tam: 7.6, maxW: 460 });
-    valHora(p.horaReferencia, 184, 213, 253);
+    valHora(horarioDe('horario_inicio_dor'), 184, 213, 253);
     var eva = e('eva');
     val(387, 253, eva && eva.feita ? eva.valor : '', { tam: 7.6, maxW: 25 });
 
