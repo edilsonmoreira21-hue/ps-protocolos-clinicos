@@ -398,7 +398,7 @@ var TIPOS = {
     },
     dor_toracica: {
         label: 'Dor Torácica',
-        labelReferencia: 'Horário de início da dor',
+        labelReferencia: 'Hora da abertura do atendimento',
         motivosExclusao: ['Diagnóstico não cardiológico confirmado', 'Dor resolvida sem alterações de ECG/marcadores', 'Outro'],
         etapas: [
             { key: 'queixa', label: 'Queixa do paciente', estacao: 'emerg_enf', tipoCampo: 'valor', obrigatoria: true },
@@ -650,7 +650,10 @@ function selecionarTipoNovoProtocolo(tipo) {
     var h = '<div class="field"><label>Nome completo do paciente</label><input type="text" id="np-nome" placeholder="Nome do paciente"></div>';
     h += '<div class="field"><label>Data de nascimento</label><input type="date" id="np-nascimento"></div>';
     h += '<div class="field"><label>Prontuário</label><input type="text" id="np-prontuario"></div>';
-    h += '<div class="field"><label>Leito/Sala atual (opcional)</label><input type="text" id="np-leito"></div>';
+    h += '<div class="field"><label>Leito/Sala atual</label><input type="text" id="np-leito"></div>';
+    if (tipo === 'dor_toracica') {
+        h += '<div class="field"><label>Setor em que o paciente se encontra</label><input type="text" id="np-setor" placeholder="ex: Sala vermelha, Box 3"></div>';
+    }
     h += '<div class="field"><label>' + esc(tipoInfo.labelReferencia) + '</label><input type="datetime-local" id="np-referencia" value="' + getLocalISO() + '"></div>';
     var body = g('novo-protocolo-body');
     body.innerHTML = h;
@@ -668,9 +671,16 @@ function salvarNovoProtocolo() {
     var nome = g('np-nome').value.trim();
     var nascimento = g('np-nascimento').value;
     var prontuario = g('np-prontuario').value.trim();
+    var leito = g('np-leito').value.trim();
+    var setorInput = g('np-setor');
+    var setor = setorInput ? setorInput.value.trim() : '';
+    var referenciaInput = g('np-referencia');
     if (!nome) { alert('Informe o nome do paciente.'); g('np-nome').focus(); return; }
     if (!nascimento) { alert('Informe a data de nascimento do paciente.'); g('np-nascimento').focus(); return; }
     if (!prontuario) { alert('Informe o número de atendimento do paciente.'); g('np-prontuario').focus(); return; }
+    if (!leito) { alert('Informe o leito/sala atual do paciente.'); g('np-leito').focus(); return; }
+    if (setorInput && !setor) { alert('Informe o setor em que o paciente se encontra.'); setorInput.focus(); return; }
+    if (!referenciaInput.value) { alert('Informe ' + TIPOS[tipo].labelReferencia.toLowerCase() + '.'); referenciaInput.focus(); return; }
     if (!getEstacaoAtual()) { alert('Selecione a estação de trabalho antes de continuar.'); abrirSeletorEstacao(); return; }
     var tipoInfo = TIPOS[tipo];
     var etapas = tipoInfo.etapas.map(function(e) {
@@ -683,10 +693,11 @@ function salvarNovoProtocolo() {
             nome: nome,
             dataNascimento: g('np-nascimento').value || '',
             prontuario: prontuario,
-            leito: g('np-leito').value || ''
+            leito: leito,
+            setor: setor || ''
         },
         status: 'ativo',
-        horaReferencia: g('np-referencia').value ? new Date(g('np-referencia').value).toISOString() : agora,
+        horaReferencia: new Date(referenciaInput.value).toISOString(),
         criadoEm: agora,
         criadoPor: { uid: usuarioAtual.uid, email: usuarioAtual.email, nome: usuarioAtual.nome || null, cargo: usuarioAtual.cargo || null, estacao: getEstacaoAtual(), sessaoId: SESSAO_ID },
         etapas: etapas,
@@ -1536,6 +1547,8 @@ function desenharDorP1(doc, w, h, p, logo, fundo) {
     // Identificação do paciente
     val(131, 149, pac.nome, { tam: 8, maxW: 380 });
     valData(pac.dataNascimento ? pac.dataNascimento + 'T12:00:00' : null, 441, 470, 498, 149);
+    val(85, 174, pac.setor, { tam: 7.5, maxW: 112 });
+    val(245, 174, 'Hospital Paulo Sacramento', { tam: 6.5, maxW: 100 });
     val(413, 174, pac.prontuario, { tam: 8, maxW: 140 });
 
     // Abertura do atendimento
