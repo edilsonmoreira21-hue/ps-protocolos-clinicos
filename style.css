@@ -365,9 +365,9 @@ button { font-family: inherit; }
 .etapa-multi-opt { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-primary); cursor: pointer; }
 .etapa-multi-opt input { width: 15px; height: 15px; flex-shrink: 0; cursor: pointer; }
 .etapa-valor-row { display: flex; gap: 6px; margin-top: 6px; align-items: center; }
-.etapa-valor-row input { height: 30px; border: 1px solid var(--border); border-radius: 5px; padding: 0 8px; font-size: 12.5px; background: var(--bg-surface); outline: none; width: 130px; }
+.etapa-valor-row input { height: 30px; border: 1px solid var(--border); border-radius: 5px; padding: 0 8px; font-size: 12.5px; background: var(--bg-surface); outline: none; flex: 1 1 auto; min-width: 0; }
 .etapa-valor-row input:focus { border-color: var(--accent); }
-.etapa-valor-row select { height: 30px; border: 1px solid var(--border); border-radius: 5px; padding: 0 8px; font-size: 12.5px; background: var(--bg-surface); outline: none; color: var(--text-primary); min-width: 160px; }
+.etapa-valor-row select { height: 30px; border: 1px solid var(--border); border-radius: 5px; padding: 0 8px; font-size: 12.5px; background: var(--bg-surface); outline: none; color: var(--text-primary); flex: 1 1 auto; min-width: 160px; }
 .etapa-valor-row select:focus { border-color: var(--accent); }
 .etapa-subcampo-label { font-size: 11px; color: var(--text-tertiary); width: 140px; flex-shrink: 0; }
 .etapa-btn-mini {
