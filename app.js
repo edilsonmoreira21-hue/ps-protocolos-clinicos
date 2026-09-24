@@ -1233,7 +1233,7 @@ function campoLinha(doc, w, h, xf, yf, largF, rotulo, valor, o) {
     var yLinha = yf + (tam * 0.32) / h;
     var xFim = Math.max(xf + largF, xf + lw + 0.03);
     lin(doc, w, h, xf + lw, yLinha, xFim, yLinha, { esp: 0.6 });
-    if (valor) txt(doc, w, h, xf + lw + 0.004, yf, String(valor), { tam: tam, cor: COR_TINTA });
+    if (valor) txt(doc, w, h, xf + lw + 0.004, yf, String(valor), { tam: tam, cor: COR_TINTA, negrito: true });
 }
 // Tabela de critérios (checkbox + rótulo), com grupos opcionais com cabeçalho de subseção
 function tabelaCriterios(doc, w, h, x0, y0, x1, y1, titulo, grupos, xdiv) {
@@ -1287,7 +1287,7 @@ function desenharSepseP1(doc, w, h, p, logo, fundo) {
 
     function val(xpt, ypt, s, o) {
         if (s == null || s === '') return;
-        var opts = Object.assign({ tam: 7.5, cor: COR_TINTA }, o || {});
+        var opts = Object.assign({ tam: 7.5, cor: COR_TINTA, negrito: true }, o || {});
         if (opts.maxW) opts.maxW = opts.maxW / w;
         txt(doc, w, h, xpt / w, ypt / h, String(s), opts);
     }
@@ -1330,7 +1330,7 @@ function desenharSepseP2(doc, w, h, p, logo, fundo) {
     function dataDe(k) { var et = e(k); return et && et.feita ? fmtDataHora(et.horario || et.feitaEm) : ''; }
     function val(xpt, ypt, s, o) {
         if (s == null || s === '') return;
-        var opts = Object.assign({ tam: 7, cor: COR_TINTA }, o || {});
+        var opts = Object.assign({ tam: 7, cor: COR_TINTA, negrito: true }, o || {});
         if (opts.maxW) opts.maxW = opts.maxW / w;
         txt(doc, w, h, xpt / w, ypt / h, String(s), opts);
     }
@@ -1411,7 +1411,7 @@ function desenharDorP1(doc, w, h, p, logo, fundo) {
 
     function val(xpt, ypt, s, o) {
         if (s == null || s === '') return;
-        var opts = Object.assign({ tam: 7.5, cor: COR_TINTA }, o || {});
+        var opts = Object.assign({ tam: 7.5, cor: COR_TINTA, negrito: true }, o || {});
         if (opts.maxW) opts.maxW = opts.maxW / w;
         txt(doc, w, h, xpt / w, ypt / h, String(s), opts);
     }
@@ -1589,7 +1589,7 @@ function desenharAvcP1(doc, w, h, p, logo) {
     ret(doc, w, h, 0.040, 0.485, 0.300, 0.522, { esp: 1 });
     txt(doc, w, h, 0.048, 0.500, 'Exclusão do protocolo', { tam: 7.4 });
     txt(doc, w, h, 0.048, 0.514, 'Investigar outras patologias', { tam: 7.4 });
-    if (p.status === 'cancelado') txt(doc, w, h, 0.190, 0.514, '— ' + fmtDataHora(p.finalizadoEm), { tam: 6.6, cor: COR_TINTA });
+    if (p.status === 'cancelado') txt(doc, w, h, 0.190, 0.514, '— ' + fmtDataHora(p.finalizadoEm), { tam: 6.6, cor: COR_TINTA, negrito: true });
     ret(doc, w, h, 0.640, 0.487, 0.740, 0.519, { esp: 1 });
     campoLinha(doc, w, h, 0.650, 0.505, 0.080, '', textoEtapaHora(e('hd_confirmada')), { tam: 7.4 });
     txt(doc, w, h, 0.690, 0.498, 'Horário:', { tam: 7, align: 'center' });
