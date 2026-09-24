@@ -316,11 +316,12 @@ var TIPOS = {
             { key: 'foco_infeccioso', label: 'Foco infeccioso presumido', estacao: 'emerg_medico', tipoCampo: 'select', obrigatoria: true, opcoes: ['Pulmonar', 'Urinário', 'Abdominal', 'Cutâneo', 'Neurológico', 'Outro'] },
             { key: 'atb_prescrito', label: 'Antibiótico prescrito', estacao: 'emerg_medico', tipoCampo: 'valor_horario', obrigatoria: true, placeholder: 'Nome do antibiótico' },
             { key: 'hemoculturas', label: 'Coleta de hemocultura, lactato e pacote sepse 1ª hora', estacao: 'laboratorio', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 60 },
-            { key: 'lactato', label: 'Resultado do primeiro lactato', estacao: 'laboratorio', tipoCampo: 'valor_horario', unidade: 'mg/dL', obrigatoria: true, metaMinutos: 60, placeholder: 'Valor do lactato (mg/dL)' },
             { key: 'atb', label: 'Antibioticoterapia administrada (pacote sepse 1ª hora)', estacao: 'emerg_enf', tipoCampo: 'valor_horario', obrigatoria: true, metaMinutos: 60, placeholder: 'Nome do antibiótico administrado' },
+            { key: 'lactato', label: 'Resultado do primeiro lactato', estacao: 'laboratorio', tipoCampo: 'valor_horario', unidade: 'mg/dL', obrigatoria: true, metaMinutos: 60, placeholder: 'Valor do lactato (mg/dL)' },
             { key: 'disfuncao_pos_pacote', label: 'Há disfunção orgânica após o resultado do pacote sepse?', estacao: 'emerg_medico', tipoCampo: 'decisao', obrigatoria: true, rotuloPositivo: 'Sim', rotuloNegativo: 'Não', motivoDescarte: 'Sem disfunção orgânica após o resultado do pacote sepse' },
             { key: 'reposicao_volemica', label: 'Reposição volêmica 30mL/kg de cristaloides (peso / volume / solução)', estacao: 'emerg_enf', tipoCampo: 'reposicao', obrigatoria: false, metaMinutos: 180 },
-            { key: 'segundo_lactato', label: 'Segunda coleta de lactato (pós-ressuscitação volêmica)', estacao: 'laboratorio', tipoCampo: 'valor', unidade: 'mg/dL', obrigatoria: false },
+            { key: 'segundo_lactato_coleta', label: 'Coleta do segundo lactato (pós-ressuscitação volêmica)', estacao: 'laboratorio', tipoCampo: 'horario', obrigatoria: false },
+            { key: 'segundo_lactato', label: 'Resultado do segundo lactato', estacao: 'laboratorio', tipoCampo: 'valor_horario', unidade: 'mg/dL', obrigatoria: false, placeholder: 'Valor do lactato (mg/dL)' },
             { key: 'vasopressor', label: 'Noradrenalina iniciada (se PAM <65mmHg após volume) e acesso central providenciado', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false },
             { key: 'destino', label: 'Destino definido', estacao: 'emerg_medico', tipoCampo: 'select_horario', obrigatoria: true, opcoes: ['UTI', 'Internação'] }
         ]
@@ -1381,10 +1382,11 @@ function desenharSepseP2(doc, w, h, p, logo, fundo) {
     val(192, 632, repVol && repVol.feita ? repVol.volume : '', { tam: 6, maxW: 55 });
     val(155, 641, repVol && repVol.feita ? repVol.solucao : '', { tam: 6, maxW: 145 });
 
-    // Coleta do segundo lactato
-    val(110, 461, dataDe('segundo_lactato'), { tam: 6 });
+    // Coleta e resultado do segundo lactato
+    val(110, 461, dataDe('segundo_lactato_coleta'), { tam: 6 });
     var lac2 = e('segundo_lactato');
     val(118, 470, lac2 && lac2.feita ? (lac2.valor + (lac2.unidade ? ' ' + lac2.unidade : '')) : '', { tam: 6 });
+    val(110, 480, lac2 && lac2.feita ? fmtDataHora(lac2.horario) : '', { tam: 6 });
 
     // Destino (UTI / Internação) e hospital de destino
     var destino = e('destino');
