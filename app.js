@@ -83,6 +83,11 @@ function nomeDe(pessoa) {
     if (!pessoa) return '--';
     return pessoa.nome ? (pessoa.nome + (pessoa.cargo ? ' (' + pessoa.cargo + ')' : '')) : (pessoa.email || '--');
 }
+function nomeSemCargo(s) {
+    if (!s) return s;
+    var i = s.indexOf(' (');
+    return i > -1 ? s.substring(0, i) : s;
+}
 function fazerLogin() {
     var e = g('email').value, s = g('senha').value;
     var erroEl = g('login-erro');
@@ -1245,7 +1250,9 @@ function desenharSepseP1(doc, w, h, p, logo, fundo) {
 
     function val(xpt, ypt, s, o) {
         if (s == null || s === '') return;
-        txt(doc, w, h, xpt / w, ypt / h, String(s), Object.assign({ tam: 7.5, cor: COR_TINTA }, o || {}));
+        var opts = Object.assign({ tam: 7.5, cor: COR_TINTA }, o || {});
+        if (opts.maxW) opts.maxW = opts.maxW / w;
+        txt(doc, w, h, xpt / w, ypt / h, String(s), opts);
     }
     function marcaX(xpt, ypt) { txt(doc, w, h, xpt / w, ypt / h, 'X', { tam: 8, negrito: true, cor: COR_TINTA, align: 'center' }); }
 
@@ -1286,7 +1293,9 @@ function desenharSepseP2(doc, w, h, p, logo, fundo) {
     function dataDe(k) { var et = e(k); return et && et.feita ? fmtDataHora(et.horario || et.feitaEm) : ''; }
     function val(xpt, ypt, s, o) {
         if (s == null || s === '') return;
-        txt(doc, w, h, xpt / w, ypt / h, String(s), Object.assign({ tam: 7, cor: COR_TINTA }, o || {}));
+        var opts = Object.assign({ tam: 7, cor: COR_TINTA }, o || {});
+        if (opts.maxW) opts.maxW = opts.maxW / w;
+        txt(doc, w, h, xpt / w, ypt / h, String(s), opts);
     }
     function marcaX(xpt, ypt) { txt(doc, w, h, xpt / w, ypt / h, 'X', { tam: 8, negrito: true, cor: COR_TINTA, align: 'center' }); }
 
@@ -1296,6 +1305,7 @@ function desenharSepseP2(doc, w, h, p, logo, fundo) {
     // Exclusão 1 — suspeita de infecção descartada
     if (p.status === 'cancelado' && (TIPOS.sepse.motivosExclusao || [])[0] === p.canceladoMotivo) {
         val(437, 296, fmtDataHora(p.finalizadoEm), { tam: 6.5, maxW: 100 });
+        val(485, 309, nomeSemCargo(p.finalizadoPor), { tam: 5.5, maxW: 58 });
     }
 
     // Coleta de exames (hemocultura / lactato)
@@ -1322,6 +1332,7 @@ function desenharSepseP2(doc, w, h, p, logo, fundo) {
     // Exclusão 2 — sem disfunção orgânica após pacote sepse
     if (p.status === 'cancelado' && (TIPOS.sepse.motivosExclusao || [])[1] === p.canceladoMotivo) {
         val(443, 610, fmtDataHora(p.finalizadoEm), { tam: 6.5, maxW: 95 });
+        val(492, 624, nomeSemCargo(p.finalizadoPor), { tam: 5.5, maxW: 58 });
     }
 
     // Reposição volêmica
