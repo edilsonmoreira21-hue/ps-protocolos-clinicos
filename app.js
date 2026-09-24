@@ -177,6 +177,7 @@ function entrarNoApp() {
     g('estacao-label').innerText = getEstacaoAtual() ? estacaoTxt(getEstacaoAtual()) : 'Selecionar estação';
     renderFiltrosEstacao();
     iniciarBancoDeDados();
+    carregarAntibioticos();
     if (!getEstacaoAtual()) abrirSeletorEstacao();
 }
 
@@ -219,8 +220,14 @@ function renderAdmin() {
     var el = g('view-admin');
     el.innerHTML = '<div class="rel-page" id="admin-page">' +
         '<div class="rel-header"><h2>Administração de Profissionais</h2><span id="admin-count"></span></div>' +
-        '<div class="rel-list" id="admin-lista"></div></div>';
+        '<div class="rel-list" id="admin-lista"></div>' +
+        '<div class="rel-header" style="margin-top:26px;"><h2>Antibióticos do Protocolo de Sepse</h2><span id="admin-atb-count"></span></div>' +
+        '<div class="field-row" style="margin-top:10px;"><div class="field"><label>Novo antibiótico</label><input type="text" id="admin-atb-novo" placeholder="ex: Ceftriaxona 1g EV"></div></div>' +
+        '<div class="etapa-valor-row" style="margin-top:6px;justify-content:flex-end;"><button class="etapa-btn-mini primary" onclick="adicionarAntibiotico()">Adicionar</button></div>' +
+        '<div class="rel-list" id="admin-atb-lista" style="margin-top:14px;"></div>' +
+        '</div>';
     carregarProfissionais();
+    carregarAntibioticos().then(renderizarPaginaAdminAntibioticos);
 }
 function carregarProfissionais() {
     g('admin-lista').innerHTML = '<div class="rel-empty">Carregando...</div>';
@@ -297,6 +304,75 @@ function alternarAtivoProfissional(uid, novoValor) {
     }).catch(function(err) { alert('Erro ao atualizar: ' + err.message); });
 }
 
+// ===== ANTIBIÓTICOS DO PROTOCOLO DE SEPSE (lista configurável pelo administrador) =====
+var listaAntibioticos = [];      // apenas ativos — usados no campo suspenso do checklist
+var listaAntibioticosAdmin = []; // todos (ativos e desativados) — usados na tela de Administração
+var ANTIBIOTICOS_PADRAO = ['Ceftriaxona 1g EV', 'Cefepime 2g EV', 'Piperacilina-Tazobactam 4,5g EV', 'Meropenem 1g EV', 'Vancomicina 1g EV', 'Ampicilina-Sulbactam 3g EV', 'Ciprofloxacino 400mg EV', 'Metronidazol 500mg EV', 'Clindamicina 600mg EV', 'Oxacilina 2g EV'];
+function carregarAntibioticos() {
+    return db.collection('antibioticos').orderBy('nome').get().then(function(snap) {
+        if (snap.empty) return semearAntibioticosPadrao().then(carregarAntibioticos);
+        listaAntibioticosAdmin = snap.docs.map(function(d) { return Object.assign({ id: d.id }, d.data()); });
+        listaAntibioticos = listaAntibioticosAdmin.filter(function(a) { return a.ativo !== false; });
+    }).catch(function(err) { console.error('Erro ao carregar antibióticos:', err); });
+}
+function semearAntibioticosPadrao() {
+    var batch = db.batch();
+    ANTIBIOTICOS_PADRAO.forEach(function(nome) {
+        batch.set(db.collection('antibioticos').doc(), { nome: nome, ativo: true, criadoEm: agoraISO() });
+    });
+    return batch.commit();
+}
+function renderizarPaginaAdminAntibioticos() {
+    var contagem = g('admin-atb-count');
+    if (contagem) contagem.innerText = listaAntibioticosAdmin.length + ' cadastrado(s)';
+    var el = g('admin-atb-lista');
+    if (!el) return;
+    if (!listaAntibioticosAdmin.length) { el.innerHTML = '<div class="rel-empty">Nenhum antibiótico cadastrado.</div>'; return; }
+    var h = '';
+    listaAntibioticosAdmin.forEach(function(a) {
+        var desativado = a.ativo === false;
+        h += '<div class="rel-list-row admin-row">';
+        h += '<div class="rel-list-main">';
+        h += '<div class="admin-edit-fields">';
+        h += '<input type="text" class="admin-input" id="admin-atb-nome-' + a.id + '" value="' + esc(a.nome || '') + '" placeholder="Nome do antibiótico">';
+        h += '<button class="etapa-btn-mini primary" onclick="salvarEdicaoAntibiotico(\'' + a.id + '\')">Salvar</button>';
+        h += '</div>';
+        h += '<div class="rel-list-sub">' + (desativado ? '<b style="color:var(--danger);">Desativado</b>' : 'Ativo') + '</div>';
+        h += '</div>';
+        h += '<div class="desfecho-actions">';
+        h += '<button class="etapa-btn-mini' + (desativado ? ' success' : ' danger') + '" onclick="alternarAtivoAntibiotico(\'' + a.id + '\', ' + desativado + ')">' + (desativado ? 'Reativar' : 'Desativar') + '</button>';
+        h += '</div>';
+        h += '</div>';
+    });
+    el.innerHTML = h;
+}
+function adicionarAntibiotico() {
+    var input = g('admin-atb-novo'); var nome = input.value.trim();
+    if (!nome) { input.focus(); return; }
+    db.collection('antibioticos').add({ nome: nome, ativo: true, criadoEm: agoraISO() }).then(function() {
+        input.value = '';
+        mostrarToast('Antibiótico adicionado', nome);
+        carregarAntibioticos().then(renderizarPaginaAdminAntibioticos);
+    }).catch(function(err) { alert('Erro ao adicionar: ' + err.message); });
+}
+function salvarEdicaoAntibiotico(id) {
+    var input = g('admin-atb-nome-' + id); var nome = input.value.trim();
+    if (!nome) { input.focus(); return; }
+    db.collection('antibioticos').doc(id).update({ nome: nome }).then(function() {
+        mostrarToast('Antibiótico atualizado', nome);
+        carregarAntibioticos().then(renderizarPaginaAdminAntibioticos);
+    }).catch(function(err) { alert('Erro ao salvar: ' + err.message); });
+}
+function alternarAtivoAntibiotico(id, novoValor) {
+    var a = listaAntibioticosAdmin.find(function(x) { return x.id === id; });
+    var nomeAtb = (a && a.nome) || id;
+    var acao = novoValor ? 'reativar' : 'desativar';
+    if (!confirm('Confirma ' + acao + ' "' + nomeAtb + '"?' + (novoValor ? '' : ' Ele deixará de aparecer na lista de seleção do checklist.'))) return;
+    db.collection('antibioticos').doc(id).update({ ativo: novoValor }).then(function() {
+        carregarAntibioticos().then(renderizarPaginaAdminAntibioticos);
+    }).catch(function(err) { alert('Erro ao atualizar: ' + err.message); });
+}
+
 // ===== TEMPLATES CLÍNICOS DOS PROTOCOLOS =====
 // Campos, ordem e metas de tempo replicados dos formulários institucionais Hapvida/NotreDame
 // Intermédica ("Gerenciamento do Protocolo de Sepse Adulto", "Ficha de Monitoramento de Dor
@@ -314,9 +390,9 @@ var TIPOS = {
             { key: 'avaliacao_medica', label: 'Avaliação médica realizada, protocolo comunicado ao médico', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: true },
             { key: 'suspeita_infeccao', label: 'Suspeita ou confirmação de infecção presente', estacao: 'emerg_medico', tipoCampo: 'decisao', obrigatoria: true, motivoDescarte: 'Sem suspeita ou confirmação de infecção após avaliação médica' },
             { key: 'foco_infeccioso', label: 'Foco infeccioso presumido', estacao: 'emerg_medico', tipoCampo: 'select', obrigatoria: true, opcoes: ['Pulmonar', 'Urinário', 'Abdominal', 'Cutâneo', 'Neurológico', 'Outro'] },
-            { key: 'atb_prescrito', label: 'Antibiótico prescrito', estacao: 'emerg_medico', tipoCampo: 'valor_horario', obrigatoria: true, placeholder: 'Nome do antibiótico' },
+            { key: 'atb_prescrito', label: 'Antibiótico prescrito', estacao: 'emerg_medico', tipoCampo: 'antibiotico', obrigatoria: true },
             { key: 'hemoculturas', label: 'Coleta de hemocultura, lactato e pacote sepse 1ª hora', estacao: 'laboratorio', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 60 },
-            { key: 'atb', label: 'Antibioticoterapia administrada (pacote sepse 1ª hora)', estacao: 'emerg_enf', tipoCampo: 'valor_horario', obrigatoria: true, metaMinutos: 60, placeholder: 'Nome do antibiótico administrado' },
+            { key: 'atb', label: 'Antibioticoterapia administrada (pacote sepse 1ª hora)', estacao: 'emerg_enf', tipoCampo: 'antibiotico', obrigatoria: true, metaMinutos: 60 },
             { key: 'lactato', label: 'Resultado do primeiro lactato', estacao: 'laboratorio', tipoCampo: 'valor_horario', unidade: 'mg/dL', obrigatoria: true, metaMinutos: 60, placeholder: 'Valor do lactato (mg/dL)' },
             { key: 'disfuncao_pos_pacote', label: 'Há disfunção orgânica após o resultado do pacote sepse?', estacao: 'emerg_medico', tipoCampo: 'decisao', obrigatoria: true, rotuloPositivo: 'Sim', rotuloNegativo: 'Não', motivoDescarte: 'Sem disfunção orgânica após o resultado do pacote sepse' },
             { key: 'reposicao_volemica', label: 'Reposição volêmica 30mL/kg de cristaloides (peso / volume / solução)', estacao: 'emerg_enf', tipoCampo: 'reposicao', obrigatoria: false, metaMinutos: 180 },
@@ -777,6 +853,15 @@ function renderEtapaItem(p, e, idx) {
             h += '<div class="etapa-valor-row"><input type="text" id="valor-' + idx + '" placeholder="' + esc(e.placeholder || 'Valor') + '"></div>';
             h += '<div class="etapa-valor-row"><input type="datetime-local" id="horario-' + idx + '" value="' + getLocalISO() + '">';
             h += '<button class="etapa-btn-mini primary" onclick="salvarEtapaValorHorario(\'' + p.id + '\',' + idx + ')">Registrar</button></div>';
+        } else if (e.tipoCampo === 'antibiotico') {
+            h += '<div class="etapa-valor-row"><select id="select-' + idx + '" data-outro="Outro" onchange="alternarCampoOutro(' + idx + ')">';
+            h += '<option value="" selected disabled>Selecione...</option>';
+            listaAntibioticos.forEach(function(ab) { h += '<option value="' + esc(ab.nome) + '">' + escHtml(ab.nome) + '</option>'; });
+            h += '<option value="Outro">Outro</option>';
+            h += '</select></div>';
+            h += '<div class="etapa-valor-row" id="outro-wrap-' + idx + '" style="display:none;"><input type="text" id="outro-' + idx + '" placeholder="Nome do antibiótico"></div>';
+            h += '<div class="etapa-valor-row"><input type="datetime-local" id="horario-' + idx + '" value="' + getLocalISO() + '">';
+            h += '<button class="etapa-btn-mini primary" onclick="salvarEtapaAntibiotico(\'' + p.id + '\',' + idx + ')">Registrar</button></div>';
         } else {
             h += '<div class="etapa-valor-row"><button class="etapa-btn-mini primary" onclick="marcarEtapaRapida(\'' + p.id + '\',' + idx + ')">Marcar feito agora</button></div>';
         }
@@ -930,6 +1015,19 @@ function salvarEtapaSelectHorario(protocoloId, idx) {
 function salvarEtapaValorHorario(protocoloId, idx) {
     var valorInput = g('valor-' + idx); var valor = valorInput.value.trim();
     if (!valor) { valorInput.focus(); return; }
+    var horarioInput = g('horario-' + idx); if (!horarioInput.value) { horarioInput.focus(); return; }
+    var horarioISO = new Date(horarioInput.value).toISOString();
+    var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
+    atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, horario: horarioISO, feitaEm: agoraISO(), feitaPor: nomeDe(usuarioAtual) }, e.label + ': ' + valor + ' — registrado às ' + fmtDataHora(horarioISO));
+}
+function salvarEtapaAntibiotico(protocoloId, idx) {
+    var select = g('select-' + idx); var valor = select.value;
+    if (!valor) { select.focus(); return; }
+    if (valor === select.dataset.outro) {
+        var outroInput = g('outro-' + idx); var texto = outroInput.value.trim();
+        if (!texto) { outroInput.focus(); return; }
+        valor = texto;
+    }
     var horarioInput = g('horario-' + idx); if (!horarioInput.value) { horarioInput.focus(); return; }
     var horarioISO = new Date(horarioInput.value).toISOString();
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
@@ -1901,9 +1999,10 @@ var REL_INDICADORES = {
         { chave: 'lactato', tipo: 'tempo', titulo: 'Resultado do lactato', meta: 60, obrigatoria: true },
         { chave: 'hemoculturas', chaveComparar: 'atb', tipo: 'ordem', titulo: 'Coletada hemocultura antes da administração do antibiótico', obrigatoria: true },
         { chave: 'atb', tipo: 'tempo', titulo: 'Administrado antibiótico', meta: 60, obrigatoria: true },
-        { chave: 'reposicao_volemica', tipo: 'binario', titulo: 'Prescrita hidratação EV pelo médico' },
-        { chave: 'reposicao_volemica', tipo: 'tempo', titulo: 'Hidratação checada pela enfermagem', meta: 60, obrigatoria: true },
-        { tipo: 'cancelamento', titulo: 'Protocolos encerrados por não haver disfunção orgânica', motivo: 'Sem disfunção orgânica após o resultado do pacote sepse', neutro: true }
+        { chave: 'reposicao_volemica', tipo: 'tempo', titulo: 'Reposição volêmica registrada', meta: 180, obrigatoria: true },
+        { chave: 'vasopressor', tipo: 'binario', titulo: 'Noradrenalina iniciada' },
+        { tipo: 'cancelamento', titulo: 'Protocolos encerrados na 1ª checagem — sem suspeita/confirmação de infecção', motivo: 'Sem suspeita ou confirmação de infecção após avaliação médica', neutro: true },
+        { tipo: 'cancelamento', titulo: 'Protocolos encerrados na 2ª checagem — sem disfunção orgânica', motivo: 'Sem disfunção orgânica após o resultado do pacote sepse', neutro: true }
     ],
     dor_toracica: [
         { chave: 'ecg', tipo: 'tempo', titulo: 'ECG realizado', meta: 10, obrigatoria: true },
@@ -1918,6 +2017,17 @@ var REL_INDICADORES = {
         { chave: 'trombolise', tipo: 'janela', titulo: 'Trombólise com déficit', limiteMin: 270, limiteTxt: '4,5h', obrigatoria: false }
     ]
 };
+
+// Distribuições por categoria (gráfico de pizza ou lista com quantidade/porcentagem)
+var REL_DISTRIBUICOES = {
+    sepse: [
+        { titulo: 'Foco infeccioso presumido', grafico: 'pizza', valor: function(p) { var e = etapaPorChave(p, 'foco_infeccioso'); return e && e.feita ? e.valor : null; } },
+        { titulo: 'Antibióticos prescritos', grafico: 'lista', valor: function(p) { var e = etapaPorChave(p, 'atb_prescrito'); return e && e.feita && e.valor ? e.valor.trim() : null; } },
+        { titulo: 'Destino dos pacientes', grafico: 'lista', valor: function(p) { var e = etapaPorChave(p, 'destino'); return e && e.feita ? e.valor : null; } },
+        { titulo: 'Desfecho final do paciente', grafico: 'lista', valor: function(p) { return p.desfechoFinal || null; } }
+    ]
+};
+var PALETA_GRAFICO = ['#E8622E', '#1534a5', '#15803d', '#ca8a04', '#7c3aed', '#0891b2', '#be185d', '#6b7280'];
 
 var relTipoAtual = 'sepse';
 var relDe = null, relAte = null;
@@ -1977,6 +2087,62 @@ function computarIndicador(lista, ind) {
 }
 function corBarraIndicador(pct) { if (pct == null) return 'var(--text-tertiary)'; if (pct >= 90) return 'var(--success)'; if (pct >= 80) return 'var(--time-warn)'; return 'var(--danger)'; }
 
+function computarDistribuicao(lista, dist) {
+    var contagem = {}, total = 0;
+    lista.forEach(function(p) {
+        var v = dist.valor(p);
+        if (!v) return;
+        contagem[v] = (contagem[v] || 0) + 1;
+        total++;
+    });
+    var chaves = Object.keys(contagem).sort(function(a, b) { return contagem[b] - contagem[a]; });
+    return { contagem: contagem, total: total, chaves: chaves };
+}
+
+function svgFatiaPizza(chaves, contagem, total) {
+    var cx = 60, cy = 60, r = 56;
+    if (chaves.length === 1) return '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + PALETA_GRAFICO[0] + '"></circle>';
+    var ang = -90, path = '';
+    chaves.forEach(function(k, i) {
+        var frac = contagem[k] / total;
+        var angExtent = frac * 360;
+        var angEnd = ang + angExtent;
+        var x1 = (cx + r * Math.cos(ang * Math.PI / 180)).toFixed(2), y1 = (cy + r * Math.sin(ang * Math.PI / 180)).toFixed(2);
+        var x2 = (cx + r * Math.cos(angEnd * Math.PI / 180)).toFixed(2), y2 = (cy + r * Math.sin(angEnd * Math.PI / 180)).toFixed(2);
+        var largeArc = angExtent > 180 ? 1 : 0;
+        path += '<path d="M' + cx + ',' + cy + ' L' + x1 + ',' + y1 + ' A' + r + ',' + r + ' 0 ' + largeArc + ' 1 ' + x2 + ',' + y2 + ' Z" fill="' + PALETA_GRAFICO[i % PALETA_GRAFICO.length] + '"></path>';
+        ang = angEnd;
+    });
+    return path;
+}
+
+function renderDistribuicao(dist, lista) {
+    var d = computarDistribuicao(lista, dist);
+    var h = '<div class="rel-dist-card"><div class="rel-dist-title">' + esc(dist.titulo) + '</div>';
+    if (!d.chaves.length) {
+        h += '<div class="rel-empty" style="padding:16px 0;">Sem registros no período.</div></div>';
+        return h;
+    }
+    if (dist.grafico === 'pizza') {
+        h += '<div class="rel-dist-pizza-wrap"><svg viewBox="0 0 120 120" class="rel-dist-pizza">' + svgFatiaPizza(d.chaves, d.contagem, d.total) + '</svg>';
+        h += '<div class="rel-dist-legend">';
+        d.chaves.forEach(function(k, i) {
+            var pct = Math.round(d.contagem[k] / d.total * 100);
+            h += '<div class="rel-dist-legend-row"><span class="rel-dist-dot" style="background:' + PALETA_GRAFICO[i % PALETA_GRAFICO.length] + ';"></span><span class="rel-dist-legend-label">' + esc(k) + '</span><span class="rel-dist-legend-val">' + d.contagem[k] + ' · ' + pct + '%</span></div>';
+        });
+        h += '</div></div>';
+    } else {
+        h += '<div class="rel-dist-list">';
+        d.chaves.forEach(function(k) {
+            var pct = Math.round(d.contagem[k] / d.total * 100);
+            h += '<div class="rel-dist-list-row"><div class="rel-dist-list-label">' + esc(k) + '</div><div class="rel-dist-list-bar-wrap"><div class="rel-dist-list-track"><div class="rel-dist-list-fill" style="width:' + pct + '%;"></div></div><div class="rel-dist-list-val">' + d.contagem[k] + ' · ' + pct + '%</div></div></div>';
+        });
+        h += '</div>';
+    }
+    h += '</div>';
+    return h;
+}
+
 function renderRelatorios() {
     var hoje = getLocalISO().substring(0, 10);
     if (!relAte) relAte = hoje;
@@ -2025,6 +2191,14 @@ function renderizarPaginaRelatorio() {
         h += '<div class="rel-list-bar-wrap"><div class="rel-list-track"><div class="rel-list-fill" style="width:' + (r.pct == null ? 0 : r.pct) + '%;background:' + cor + ';"></div></div><div class="rel-list-pct" style="color:' + cor + ';">' + pctTxt + '</div></div></div>';
     });
     h += '</div>';
+
+    var distribuicoes = REL_DISTRIBUICOES[tipo];
+    if (distribuicoes && distribuicoes.length) {
+        h += '<div class="rel-header" style="margin-top:22px;"><h2>Distribuições</h2></div>';
+        h += '<div class="rel-dist-grid">';
+        distribuicoes.forEach(function(dist) { h += renderDistribuicao(dist, lista); });
+        h += '</div>';
+    }
 
     h += '<div class="rel-header" style="margin-top:22px;"><h2>Pacientes do Período</h2><span>' + lista.length + ' registros</span></div>';
     h += '<div class="rel-list-compact">';
