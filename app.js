@@ -319,11 +319,10 @@ var TIPOS = {
             { key: 'lactato', label: 'Coleta de lactato (pacote sepse 1ª hora)', estacao: 'laboratorio', tipoCampo: 'valor', unidade: 'mg/dL', obrigatoria: true, metaMinutos: 60 },
             { key: 'atb', label: 'Antibioticoterapia administrada (pacote sepse 1ª hora)', estacao: 'emerg_enf', tipoCampo: 'valor_horario', obrigatoria: true, metaMinutos: 60, placeholder: 'Nome do antibiótico administrado' },
             { key: 'disfuncao_pos_pacote', label: 'Há disfunção orgânica após o resultado do pacote sepse?', estacao: 'emerg_medico', tipoCampo: 'decisao', obrigatoria: true, rotuloPositivo: 'Sim', rotuloNegativo: 'Não', motivoDescarte: 'Sem disfunção orgânica após o resultado do pacote sepse' },
-            { key: 'reposicao_volemica', label: 'Reposição volêmica 30mL/kg de cristaloides (peso / volume / solução)', estacao: 'emerg_enf', tipoCampo: 'valor', obrigatoria: false, metaMinutos: 180 },
+            { key: 'reposicao_volemica', label: 'Reposição volêmica 30mL/kg de cristaloides (peso / volume / solução)', estacao: 'emerg_enf', tipoCampo: 'reposicao', obrigatoria: false, metaMinutos: 180 },
             { key: 'segundo_lactato', label: 'Segunda coleta de lactato (pós-ressuscitação volêmica)', estacao: 'laboratorio', tipoCampo: 'valor', unidade: 'mg/dL', obrigatoria: false },
-            { key: 'vasopressor', label: 'Noradrenalina iniciada (se PAM <65mmHg após volume) e acesso central providenciado', estacao: 'emerg_medico', tipoCampo: 'checkbox', obrigatoria: false },
-            { key: 'destino', label: 'Destino definido', estacao: 'emerg_medico', tipoCampo: 'select_horario', obrigatoria: true, opcoes: ['UTI', 'Internação'] },
-            { key: 'hospital_destino', label: 'Hospital de destino (se transferência)', estacao: 'emerg_medico', tipoCampo: 'valor', obrigatoria: false }
+            { key: 'vasopressor', label: 'Noradrenalina iniciada (se PAM <65mmHg após volume) e acesso central providenciado', estacao: 'emerg_medico', tipoCampo: 'horario', obrigatoria: false },
+            { key: 'destino', label: 'Destino definido', estacao: 'emerg_medico', tipoCampo: 'select_horario', obrigatoria: true, opcoes: ['UTI', 'Internação'] }
         ]
     },
     dor_toracica: {
@@ -580,10 +579,7 @@ function selecionarTipoNovoProtocolo(tipo) {
     var tipoInfo = TIPOS[tipo];
     var h = '<div class="field"><label>Nome completo do paciente</label><input type="text" id="np-nome" placeholder="Nome do paciente"></div>';
     h += '<div class="field"><label>Data de nascimento</label><input type="date" id="np-nascimento"></div>';
-    h += '<div class="field-row">';
-    h += '<div class="field"><label>Sexo</label><select id="np-sexo"><option value="M">Masculino</option><option value="F">Feminino</option></select></div>';
     h += '<div class="field"><label>Prontuário</label><input type="text" id="np-prontuario"></div>';
-    h += '</div>';
     h += '<div class="field"><label>Leito/Sala atual (opcional)</label><input type="text" id="np-leito"></div>';
     h += '<div class="field"><label>' + esc(tipoInfo.labelReferencia) + '</label><input type="datetime-local" id="np-referencia" value="' + getLocalISO() + '"></div>';
     var body = g('novo-protocolo-body');
@@ -600,7 +596,11 @@ function selecionarTipoNovoProtocolo(tipo) {
 function salvarNovoProtocolo() {
     var tipo = g('novo-protocolo-body').dataset.tipo;
     var nome = g('np-nome').value.trim();
-    if (!nome) { alert('Informe o nome do paciente.'); return; }
+    var nascimento = g('np-nascimento').value;
+    var prontuario = g('np-prontuario').value.trim();
+    if (!nome) { alert('Informe o nome do paciente.'); g('np-nome').focus(); return; }
+    if (!nascimento) { alert('Informe a data de nascimento do paciente.'); g('np-nascimento').focus(); return; }
+    if (!prontuario) { alert('Informe o número de atendimento do paciente.'); g('np-prontuario').focus(); return; }
     if (!getEstacaoAtual()) { alert('Selecione a estação de trabalho antes de continuar.'); abrirSeletorEstacao(); return; }
     var tipoInfo = TIPOS[tipo];
     var etapas = tipoInfo.etapas.map(function(e) {
@@ -612,8 +612,7 @@ function salvarNovoProtocolo() {
         paciente: {
             nome: nome,
             dataNascimento: g('np-nascimento').value || '',
-            sexo: g('np-sexo').value,
-            prontuario: g('np-prontuario').value || '',
+            prontuario: prontuario,
             leito: g('np-leito').value || ''
         },
         status: 'ativo',
@@ -661,7 +660,20 @@ function renderDetalheProtocolo(id) {
 
     if (p.status === 'ativo') {
         h += '<div class="checklist">';
-        (p.etapas || []).forEach(function(e, idx) { h += renderEtapaItem(p, e, idx); });
+        (p.etapas || []).forEach(function(e, idx) {
+            h += renderEtapaItem(p, e, idx);
+            if (e.key === 'disfuncao_pos_pacote' && e.feita && e.valor === 'Confirmada') {
+                h += '<div style="background:var(--tipo-sepse-bg, #fef9c3);border:1px solid var(--tipo-sepse-border, #fde047);border-radius:var(--radius-md);padding:12px 14px;font-size:13px;line-height:1.5;">' +
+                    '<b>Conduta recomendada:</b><ul style="margin:6px 0 0;padding-left:18px;">' +
+                    '<li>Realizar reposição volêmica com 30 mL/kg de cristaloides e ajustar conforme janelas de perfusão (diurese, débito urinário e tempo de enchimento capilar).</li>' +
+                    '<li>Monitorar o paciente de 1 em 1 hora.</li>' +
+                    '<li>Monitorar débito urinário de 2 em 2 horas, passagem de sonda caso haja necessidade.</li>' +
+                    '<li>Caso PAM estiver &lt; 65 mmHg, iniciar terapia com vasopressor indicado noradrenalina.</li>' +
+                    '<li>Providenciar passagem de acesso venoso central.</li>' +
+                    '<li>Coleta de segunda amostra de lactato.</li>' +
+                    '</ul></div>';
+            }
+        });
         h += '</div>';
 
         h += '<div class="field"><label>Adicionar observação</label><div style="display:flex;gap:8px;">';
@@ -724,6 +736,12 @@ function renderEtapaItem(p, e, idx) {
                 h += '<label class="etapa-multi-opt"><input type="checkbox" id="multi-' + idx + '-' + opIdx + '" value="' + esc(op) + '"> ' + escHtml(op) + '</label>';
             });
             h += '</div><div class="etapa-valor-row"><button class="etapa-btn-mini primary" onclick="salvarEtapaMulti(\'' + p.id + '\',' + idx + ')">Confirmar seleção</button></div>';
+        } else if (e.tipoCampo === 'reposicao') {
+            h += '<div class="field-row"><div class="field"><label>Peso (Kg)</label><input type="text" id="peso-' + idx + '"></div>';
+            h += '<div class="field"><label>Volume administrado</label><input type="text" id="volume-' + idx + '" placeholder="ex: 1500mL"></div></div>';
+            h += '<div class="field"><label>Solução administrada</label><input type="text" id="solucao-' + idx + '" placeholder="ex: SF 0,9%"></div>';
+            h += '<div class="etapa-valor-row"><input type="datetime-local" id="horario-' + idx + '" value="' + getLocalISO() + '">';
+            h += '<button class="etapa-btn-mini primary" onclick="salvarEtapaReposicao(\'' + p.id + '\',' + idx + ')">Registrar</button></div>';
         } else if (e.tipoCampo === 'valor') {
             h += '<div class="etapa-valor-row"><input type="text" id="valor-' + idx + '" placeholder="' + (e.unidade ? 'Valor (' + esc(e.unidade) + ')' : 'Valor') + '">';
             h += '<button class="etapa-btn-mini primary" onclick="salvarEtapaValor(\'' + p.id + '\',' + idx + ')">Salvar</button></div>';
@@ -767,6 +785,8 @@ function renderEtapaItem(p, e, idx) {
             infoValor = e.valor + ' — Solicitação ' + fmtDataHora(e.cateSolicitacao) + ', Realização ' + fmtDataHora(e.cateRealizacao);
         } else if (e.tipoCampo === 'desfecho_dor' && e.valor === 'Trombólise') {
             infoValor = e.valor + ' — Início ' + fmtDataHora(e.tromboliseInicio);
+        } else if (e.tipoCampo === 'reposicao') {
+            infoValor = 'Peso ' + e.peso + 'Kg, Volume ' + e.volume + ', Solução ' + e.solucao + ' — ' + fmtDataHora(e.horario);
         } else {
             infoValor = e.valor && e.horario ? (e.valor + ' — ' + fmtDataHora(e.horario)) : e.valor ? (e.valor + (e.unidade ? ' ' + e.unidade : '')) : (e.horario ? fmtDataHora(e.horario) : 'Concluído');
         }
@@ -796,6 +816,18 @@ function salvarEtapaValor(protocoloId, idx) {
     if (!valor) { input.focus(); return; }
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
     atualizarEtapa(protocoloId, idx, { feita: true, valor: valor, feitaEm: agoraISO(), feitaPor: nomeDe(usuarioAtual) }, e.label + ': ' + valor + (e.unidade ? ' ' + e.unidade : ''));
+}
+function salvarEtapaReposicao(protocoloId, idx) {
+    var pesoInput = g('peso-' + idx), volumeInput = g('volume-' + idx), solucaoInput = g('solucao-' + idx), horarioInput = g('horario-' + idx);
+    var peso = pesoInput.value.trim(), volume = volumeInput.value.trim(), solucao = solucaoInput.value.trim();
+    if (!peso) { pesoInput.focus(); return; }
+    if (!volume) { volumeInput.focus(); return; }
+    if (!solucao) { solucaoInput.focus(); return; }
+    if (!horarioInput.value) { horarioInput.focus(); return; }
+    var horarioISO = new Date(horarioInput.value).toISOString();
+    var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
+    var resumo = 'Peso ' + peso + 'Kg, Volume ' + volume + ', Solução ' + solucao;
+    atualizarEtapa(protocoloId, idx, { feita: true, peso: peso, volume: volume, solucao: solucao, horario: horarioISO, feitaEm: agoraISO(), feitaPor: nomeDe(usuarioAtual) }, e.label + ': ' + resumo);
 }
 function salvarEtapaMulti(protocoloId, idx) {
     var p = protocoloPorId(protocoloId); var e = p.etapas[idx];
@@ -1338,7 +1370,9 @@ function desenharSepseP2(doc, w, h, p, logo, fundo) {
     // Reposição volêmica
     val(120, 624, dataDe('reposicao_volemica'), { tam: 6 });
     var repVol = e('reposicao_volemica');
-    val(155, 641, repVol && repVol.feita ? repVol.valor : '', { tam: 6, maxW: 115 });
+    val(103, 632, repVol && repVol.feita ? repVol.peso : '', { tam: 6, maxW: 20 });
+    val(192, 632, repVol && repVol.feita ? repVol.volume : '', { tam: 6, maxW: 55 });
+    val(155, 641, repVol && repVol.feita ? repVol.solucao : '', { tam: 6, maxW: 145 });
 
     // Coleta do segundo lactato
     val(110, 461, dataDe('segundo_lactato'), { tam: 6 });
@@ -1351,8 +1385,7 @@ function desenharSepseP2(doc, w, h, p, logo, fundo) {
     if (vdestino === 'UTI') marcaX(319, 678);
     else if (vdestino === 'Internação') marcaX(340, 678);
     val(303, 686, dataDe('destino'), { tam: 6 });
-    var hospDestino = e('hospital_destino');
-    val(340, 694, hospDestino && hospDestino.feita ? hospDestino.valor : '', { tam: 6, maxW: 90 });
+    val(340, 694, 'Hospital Paulo Sacramento', { tam: 6, maxW: 90 });
 
     // Desfecho final do paciente (Alta / Óbito)
     if (p.desfechoFinal === 'Alta Hospitalar') marcaX(327, 729);
