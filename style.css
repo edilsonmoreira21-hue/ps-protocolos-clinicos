@@ -301,6 +301,8 @@ button { font-family: inherit; }
 .field textarea { height: auto; padding: 8px 10px; resize: vertical; min-height: 60px; line-height: 1.4; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); background: var(--bg-surface); box-shadow: 0 0 0 2px var(--accent-soft); }
 .field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.field-etapa input { background: var(--bg-surface); }
+.field-etapa input:focus { background: var(--bg-surface); }
 
 /* Seleção grande de tipo de protocolo / estação */
 .tipo-choice-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }

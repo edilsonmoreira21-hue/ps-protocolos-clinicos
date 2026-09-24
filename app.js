@@ -738,9 +738,9 @@ function renderEtapaItem(p, e, idx) {
             });
             h += '</div><div class="etapa-valor-row"><button class="etapa-btn-mini primary" onclick="salvarEtapaMulti(\'' + p.id + '\',' + idx + ')">Confirmar seleção</button></div>';
         } else if (e.tipoCampo === 'reposicao') {
-            h += '<div class="field-row"><div class="field"><label>Peso (Kg)</label><input type="text" id="peso-' + idx + '"></div>';
-            h += '<div class="field"><label>Volume administrado</label><input type="text" id="volume-' + idx + '" placeholder="ex: 1500mL"></div></div>';
-            h += '<div class="field"><label>Solução administrada</label><input type="text" id="solucao-' + idx + '" placeholder="ex: SF 0,9%"></div>';
+            h += '<div class="field-row"><div class="field field-etapa"><label>Peso (Kg)</label><input type="text" id="peso-' + idx + '"></div>';
+            h += '<div class="field field-etapa"><label>Volume administrado</label><input type="text" id="volume-' + idx + '" placeholder="ex: 1500mL"></div></div>';
+            h += '<div class="field field-etapa"><label>Solução administrada</label><input type="text" id="solucao-' + idx + '" placeholder="ex: SF 0,9%"></div>';
             h += '<div class="etapa-valor-row"><input type="datetime-local" id="horario-' + idx + '" value="' + getLocalISO() + '">';
             h += '<button class="etapa-btn-mini primary" onclick="salvarEtapaReposicao(\'' + p.id + '\',' + idx + ')">Registrar</button></div>';
         } else if (e.tipoCampo === 'valor') {
