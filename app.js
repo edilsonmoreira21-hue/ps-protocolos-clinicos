@@ -650,7 +650,6 @@ function selecionarTipoNovoProtocolo(tipo) {
     var h = '<div class="field"><label>Nome completo do paciente</label><input type="text" id="np-nome" placeholder="Nome do paciente"></div>';
     h += '<div class="field"><label>Data de nascimento</label><input type="date" id="np-nascimento"></div>';
     h += '<div class="field"><label>Prontuário</label><input type="text" id="np-prontuario"></div>';
-    h += '<div class="field"><label>Leito/Sala atual</label><input type="text" id="np-leito"></div>';
     if (tipo === 'dor_toracica') {
         h += '<div class="field"><label>Setor em que o paciente se encontra</label><input type="text" id="np-setor" placeholder="ex: Sala vermelha, Box 3"></div>';
     }
@@ -671,14 +670,12 @@ function salvarNovoProtocolo() {
     var nome = g('np-nome').value.trim();
     var nascimento = g('np-nascimento').value;
     var prontuario = g('np-prontuario').value.trim();
-    var leito = g('np-leito').value.trim();
     var setorInput = g('np-setor');
     var setor = setorInput ? setorInput.value.trim() : '';
     var referenciaInput = g('np-referencia');
     if (!nome) { alert('Informe o nome do paciente.'); g('np-nome').focus(); return; }
     if (!nascimento) { alert('Informe a data de nascimento do paciente.'); g('np-nascimento').focus(); return; }
     if (!prontuario) { alert('Informe o número de atendimento do paciente.'); g('np-prontuario').focus(); return; }
-    if (!leito) { alert('Informe o leito/sala atual do paciente.'); g('np-leito').focus(); return; }
     if (setorInput && !setor) { alert('Informe o setor em que o paciente se encontra.'); setorInput.focus(); return; }
     if (!referenciaInput.value) { alert('Informe ' + TIPOS[tipo].labelReferencia.toLowerCase() + '.'); referenciaInput.focus(); return; }
     if (!getEstacaoAtual()) { alert('Selecione a estação de trabalho antes de continuar.'); abrirSeletorEstacao(); return; }
@@ -693,7 +690,6 @@ function salvarNovoProtocolo() {
             nome: nome,
             dataNascimento: g('np-nascimento').value || '',
             prontuario: prontuario,
-            leito: leito,
             setor: setor || ''
         },
         status: 'ativo',
@@ -1873,8 +1869,7 @@ function gerarPDFGenerico(p) {
             'Idade: ' + ((p.paciente && p.paciente.idade) || '--'),
             'Sexo: ' + ((p.paciente && p.paciente.sexo) || '--'),
             'Convênio: ' + ((p.paciente && p.paciente.convenio) || '--'),
-            'Prontuário: ' + ((p.paciente && p.paciente.prontuario) || '--'),
-            'Leito/Sala: ' + ((p.paciente && p.paciente.leito) || '--')
+            'Prontuário: ' + ((p.paciente && p.paciente.prontuario) || '--')
         ];
         doc.text(infoPac.join('    '), margin, y); y += 14;
         doc.text((tipoInfo.labelReferencia || '') + ': ' + fmtDataHora(p.horaReferencia), margin, y); y += 12;
