@@ -196,6 +196,9 @@ auth.onAuthStateChanged(function(user) {
             console.error('Erro ao verificar perfil do profissional:', err);
             if (!usuarioAtual || usuarioAtual.uid !== user.uid) usuarioAtual = { uid: user.uid, email: user.email };
             entrarNoApp();
+            setTimeout(function() {
+                mostrarToast('Não foi possível carregar seu nome de cadastro', 'Erro: ' + (err && err.code ? err.code : (err && err.message) || 'desconhecido') + '. Tente sair e entrar novamente; se persistir, avise o suporte.');
+            }, 800);
         });
     } else {
         if (loginScreen) loginScreen.style.display = 'flex';
@@ -572,6 +575,7 @@ function abrirModalNovoProtocolo() {
 function selecionarTipoNovoProtocolo(tipo) {
     var tipoInfo = TIPOS[tipo];
     var h = '<div class="field"><label>Nome completo do paciente</label><input type="text" id="np-nome" placeholder="Nome do paciente"></div>';
+    h += '<div class="field"><label>Data de nascimento</label><input type="date" id="np-nascimento"></div>';
     h += '<div class="field-row">';
     h += '<div class="field"><label>Idade</label><input type="number" id="np-idade" min="0" max="130"></div>';
     h += '<div class="field"><label>Sexo</label><select id="np-sexo"><option value="M">Masculino</option><option value="F">Feminino</option></select></div>';
@@ -606,6 +610,7 @@ function salvarNovoProtocolo() {
         tipo: tipo,
         paciente: {
             nome: nome,
+            dataNascimento: g('np-nascimento').value || '',
             idade: g('np-idade').value || '',
             sexo: g('np-sexo').value,
             prontuario: g('np-prontuario').value || '',
@@ -1100,6 +1105,12 @@ function nomeArquivoPDF(p) {
 }
 function fmtDataCurta(iso) { return iso ? new Date(iso).toLocaleDateString('pt-BR') : ''; }
 function fmtHoraCurta(iso) { return iso ? new Date(iso).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''; }
+function fmtDataNascimento(iso) {
+    if (!iso) return '';
+    var partes = iso.split('-');
+    if (partes.length !== 3) return '';
+    return partes[2] + '/' + partes[1] + '/' + partes[0];
+}
 function etapaPorChave(p, key) { return (p.etapas || []).find(function(x) { return x.key === key; }); }
 function textoEtapaHora(e) { if (!e || !e.feita) return ''; return fmtHoraCurta(e.horario || e.feitaEm); }
 function opcoesDaEtapa(tipo, key) { var d = TIPOS[tipo].etapas.find(function(x) { return x.key === key; }); return (d && d.opcoes) || []; }
@@ -1241,6 +1252,14 @@ function desenharSepseP1(doc, w, h, p, logo, fundo) {
     function marcaX(xpt, ypt) { txt(doc, w, h, xpt / w, ypt / h, 'X', { tam: 8, negrito: true, cor: COR_TINTA, align: 'center' }); }
 
     val(117, 62.5, pac.nome, { tam: 8 });
+    if (pac.dataNascimento) {
+        var partesNasc = pac.dataNascimento.split('-');
+        if (partesNasc.length === 3) {
+            val(100, 81.0, partesNasc[2], { tam: 7, align: 'center' });
+            val(126, 81.0, partesNasc[1], { tam: 7, align: 'center' });
+            val(160, 81.0, partesNasc[0], { tam: 6.4, align: 'center' });
+        }
+    }
     val(228, 81.0, pac.prontuario);
     val(340, 81.0, 'Hospital Paulo Sacramento');
     val(136, 100.2, p.criadoPor ? nomeDe(p.criadoPor) : '', { tam: 7 });
@@ -1341,7 +1360,7 @@ function desenharDorP1(doc, w, h, p, logo) {
 
     ret(doc, w, h, 0.06, 0.098, 0.94, 0.170, { esp: 1 });
     campoLinha(doc, w, h, 0.075, 0.118, 0.470, 'Nome Completo:', pac.nome, { tam: 8 });
-    campoLinha(doc, w, h, 0.580, 0.118, 0.340, 'Data Nascimento:', '', { tam: 8 });
+    campoLinha(doc, w, h, 0.580, 0.118, 0.340, 'Data Nascimento:', fmtDataNascimento(pac.dataNascimento), { tam: 8 });
     lin(doc, w, h, 0.06, 0.135, 0.94, 0.135, { esp: 0.6 });
     campoLinha(doc, w, h, 0.075, 0.155, 0.230, 'Atendimento:', pac.prontuario, { tam: 8 });
 
