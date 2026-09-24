@@ -315,8 +315,8 @@ var TIPOS = {
             { key: 'suspeita_infeccao', label: 'Suspeita ou confirmação de infecção presente', estacao: 'emerg_medico', tipoCampo: 'decisao', obrigatoria: true, motivoDescarte: 'Sem suspeita ou confirmação de infecção após avaliação médica' },
             { key: 'foco_infeccioso', label: 'Foco infeccioso presumido', estacao: 'emerg_medico', tipoCampo: 'select', obrigatoria: true, opcoes: ['Pulmonar', 'Urinário', 'Abdominal', 'Cutâneo', 'Neurológico', 'Outro'] },
             { key: 'atb_prescrito', label: 'Antibiótico prescrito', estacao: 'emerg_medico', tipoCampo: 'valor_horario', obrigatoria: true, placeholder: 'Nome do antibiótico' },
-            { key: 'hemoculturas', label: 'Coleta de hemocultura (pacote sepse 1ª hora)', estacao: 'laboratorio', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 60 },
-            { key: 'lactato', label: 'Coleta de lactato (pacote sepse 1ª hora)', estacao: 'laboratorio', tipoCampo: 'valor', unidade: 'mg/dL', obrigatoria: true, metaMinutos: 60 },
+            { key: 'hemoculturas', label: 'Coleta de hemocultura, lactato e pacote sepse 1ª hora', estacao: 'laboratorio', tipoCampo: 'horario', obrigatoria: true, metaMinutos: 60 },
+            { key: 'lactato', label: 'Resultado do primeiro lactato', estacao: 'laboratorio', tipoCampo: 'valor_horario', unidade: 'mg/dL', obrigatoria: true, metaMinutos: 60, placeholder: 'Valor do lactato (mg/dL)' },
             { key: 'atb', label: 'Antibioticoterapia administrada (pacote sepse 1ª hora)', estacao: 'emerg_enf', tipoCampo: 'valor_horario', obrigatoria: true, metaMinutos: 60, placeholder: 'Nome do antibiótico administrado' },
             { key: 'disfuncao_pos_pacote', label: 'Há disfunção orgânica após o resultado do pacote sepse?', estacao: 'emerg_medico', tipoCampo: 'decisao', obrigatoria: true, rotuloPositivo: 'Sim', rotuloNegativo: 'Não', motivoDescarte: 'Sem disfunção orgânica após o resultado do pacote sepse' },
             { key: 'reposicao_volemica', label: 'Reposição volêmica 30mL/kg de cristaloides (peso / volume / solução)', estacao: 'emerg_enf', tipoCampo: 'reposicao', obrigatoria: false, metaMinutos: 180 },
@@ -1346,11 +1346,12 @@ function desenharSepseP2(doc, w, h, p, logo, fundo) {
         val(485, 309, nomeSemCargo(p.finalizadoPor), { tam: 5.5, maxW: 58 });
     }
 
-    // Coleta de exames (hemocultura / lactato)
+    // Coleta de exames (hemocultura / lactato) — coletados sempre juntos, no mesmo horário
     val(126, 244, dataDe('hemoculturas'), { tam: 6 });
-    val(126, 256, dataDe('lactato'), { tam: 6 });
+    val(126, 256, dataDe('hemoculturas'), { tam: 6 });
     var lac = e('lactato');
     val(142, 262, lac && lac.feita ? (lac.valor + (lac.unidade ? ' ' + lac.unidade : '')) : '', { tam: 6 });
+    val(126, 269, lac && lac.feita ? fmtDataHora(lac.horario) : '', { tam: 6 });
 
     // Antibiótico — prescrição e administração
     var atbPrescrito = e('atb_prescrito');
