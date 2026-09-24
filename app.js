@@ -617,14 +617,13 @@ function renderProtocolos() {
         var decorrido = minutosEntre(p.criadoEm);
         var etapaPend = proximaEtapaPendente(p);
         var nome = (p.paciente && p.paciente.nome) ? p.paciente.nome.toUpperCase() : '(sem nome)';
-        var idade = (p.paciente && p.paciente.idade) ? p.paciente.idade + ' anos' : '';
-        var conv = (p.paciente && p.paciente.convenio) ? p.paciente.convenio : '';
+        var prontuario = (p.paciente && p.paciente.prontuario) ? 'Pront. ' + p.paciente.prontuario : '';
         h += '<div class="protocolo-card tipo-' + p.tipo + '" onclick="abrirDetalheProtocolo(\'' + p.id + '\')">';
         h += '<div class="pc-head"><span class="pc-tipo-badge tipo-' + p.tipo + '">' + esc(tipoInfo.label) + '</span>';
         h += '<span class="pc-tempo ' + urg + '"><span class="dot"></span>' + fmtMin(decorrido) + '</span></div>';
         h += '<div class="pc-body">';
         h += '<div class="pc-nome">' + escHtml(nome) + '</div>';
-        h += '<div class="pc-sub">' + escHtml([idade, conv].filter(Boolean).join(' · ') || '—') + '</div>';
+        h += '<div class="pc-sub">' + escHtml(prontuario || '—') + '</div>';
         h += '<div class="pc-local"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>' + esc(localAtual(p)) + '</div>';
         h += '<div class="pc-proxima">Próxima ação: <b>' + esc(etapaPend ? etapaPend.label : 'Concluído') + '</b></div>';
         h += '<div class="pc-progress-wrap"><div class="pc-progress-fill" style="width:' + progressoObrigatorias(p) + '%;"></div></div>';
