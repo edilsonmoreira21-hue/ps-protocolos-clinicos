@@ -639,6 +639,8 @@ function protocoloPorId(id) { return protocolos.find(function(p) { return p.id =
 function renderDetalheProtocolo(id) {
     var p = protocoloPorId(id);
     if (!p) return;
+    var corpoAnterior = g('modal-detalhe').querySelector('.modal-body');
+    var scrollAnterior = corpoAnterior ? corpoAnterior.scrollTop : 0;
     var tipoInfo = TIPOS[p.tipo] || { label: p.tipo, etapas: [] };
     var nome = (p.paciente && p.paciente.nome) ? p.paciente.nome.toUpperCase() : '(sem nome)';
     var sub = [(p.paciente && p.paciente.idade ? p.paciente.idade + ' anos' : ''), (p.paciente && p.paciente.sexo), (p.paciente && p.paciente.convenio), (p.paciente && p.paciente.prontuario ? 'Pront. ' + p.paciente.prontuario : '')].filter(Boolean).join(' · ');
@@ -694,6 +696,8 @@ function renderDetalheProtocolo(id) {
     }
 
     g('modal-detalhe').innerHTML = h;
+    var corpoNovo = g('modal-detalhe').querySelector('.modal-body');
+    if (corpoNovo) corpoNovo.scrollTop = scrollAnterior;
 }
 
 function renderEtapaItem(p, e, idx) {
